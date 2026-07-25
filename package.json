@@ -1,0 +1,10 @@
+{
+  "name": "com.coverup.mapsdk",
+  "version": "0.1.0",
+  "displayName": "Cover Up! Map SDK",
+  "description": "Authoring contract for Cover Up! Workshop maps: the _CoverUpMap components (MapConfig, MapSizeVariants, MapBoundsVolume, CamouflageSurface, MapSpawnDisc, WorkshopMapInfo) plus the map-size + player-scale contract. Both the shipping game and third-party map projects depend on this package, so a map bundle's component scripts bind to the game's classes by identical GUIDs. (M2 will add the Validate/Export tooling.) See Docs/MapSdk.md.",
+  "unity": "6000.5",
+  "author": {
+    "name": "Arctic Heatwave"
+  }
+}

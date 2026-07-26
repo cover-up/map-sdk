@@ -53,6 +53,24 @@ namespace CoverUp.Gameplay
             catch { return null; }
         }
 
+        /// <summary>Record the assigned Workshop item id into the package's map.json so
+        /// a later re-publish updates the SAME item. Returns true if written; false if
+        /// the folder has no readable manifest, the id is 0, or it was already recorded.
+        /// Shared by the editor Publish tool and the in-game publish (M4).</summary>
+        public static bool RecordItemId(string packageFolder, ulong itemId)
+        {
+            if (itemId == 0) return false;
+            WorkshopMapManifest m = Read(packageFolder);
+            if (m == null || m.WorkshopItemId == itemId) return false;
+            m.workshopItemId = itemId.ToString();
+            try
+            {
+                File.WriteAllText(Path.Combine(packageFolder, FileName), m.ToJson());
+                return true;
+            }
+            catch { return false; }
+        }
+
         /// <summary>The "windows"/"linux" key for the running platform, or null
         /// (e.g. macOS, which we don't ship a native build for).</summary>
         public static string PlatformKey()

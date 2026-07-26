@@ -1,0 +1,11 @@
+# Standalone-repo .gitignore for com.coverup.mapsdk.
+# (Harmless while the package is embedded in the game repo; becomes the package
+# repo's root .gitignore after the subtree split — see Tools/mapsdk/split-repo.sh.)
+
+# UPM-generated
+*.tmp
+*.orig
+
+# OS cruft
+.DS_Store
+Thumbs.db

@@ -103,6 +103,25 @@ namespace CoverUp.EditorTools
                             + "The package will lack that platform until re-exported with it.");
                         continue;
                     }
+                    // A bundle can BUILD and still be unloadable — most infamously when
+                    // the project's manifest omits com.unity.modules.assetbundle, where
+                    // BuildAssetBundles logs "module AssetBundle is disabled in the
+                    // build", writes a file anyway, and returns a manifest. The game then
+                    // rejects it ("not compatible with this newer version of the Unity
+                    // runtime") and the mapper has already shipped. So prove the artifact
+                    // instead of trusting the build result. Only for THIS editor's
+                    // platform — a bundle for the other OS legitimately won't load here.
+                    if (t.Key == editorKey && !BundleHasScene(built))
+                    {
+                        string m = $"The {t.Key} bundle built but contains no loadable scene — the map "
+                            + "would fail to load in the game.\n\nMost likely this project is missing the "
+                            + "AssetBundle module: add \"com.unity.modules.assetbundle\": \"1.0.0\" to "
+                            + "Packages/manifest.json. Check the Console for "
+                            + "\"module AssetBundle is disabled in the build\".";
+                        if (interactive) Fail(m); else Debug.LogError("[CoverUp] auto-export — " + m);
+                        return;
+                    }
+
                     string dest = Path.Combine(outDir, t.File);
                     File.Copy(built, dest, true);
                     var reff = new WorkshopBundleRef { file = t.File, sha256 = Sha256(dest) };
@@ -157,6 +176,25 @@ namespace CoverUp.EditorTools
 
         // Build ONE scene bundle for a target into a temp dir; returns the built
         // file path, or null if the build produced nothing (e.g. module missing).
+        /// <summary>Load a freshly built bundle back and confirm it actually carries a
+        /// scene — the same question the game's loader asks. Only valid for the running
+        /// editor's own platform. Always unloads, so the file stays deletable.</summary>
+        private static bool BundleHasScene(string bundlePath)
+        {
+            AssetBundle ab = null;
+            try
+            {
+                ab = AssetBundle.LoadFromFile(bundlePath);
+                return ab != null && ab.GetAllScenePaths().Length > 0;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[CoverUp] couldn't verify bundle {bundlePath}: {e.Message}");
+                return false;
+            }
+            finally { if (ab != null) ab.Unload(true); }
+        }
+
         private static string BuildBundle(string scenePath, string mapId, string tempRoot, BuildTarget target)
         {
             string dir = Path.Combine(tempRoot, target.ToString());

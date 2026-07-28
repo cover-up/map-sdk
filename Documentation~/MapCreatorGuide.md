@@ -95,10 +95,28 @@ _CoverUpMap                [MapConfig, MapSizeVariants, WorkshopMapInfo]
   smaller sizes *add* doors/boundaries. Bounds volumes live **only** inside the size
   roots, never in `Base`.
 - **`WorkshopMapInfo`** — title, description, tags, preview image (read into
-  `map.json` on export).
+  `map.json` on export). See **Your preview image** below — it's the whole card players
+  see, and you can't publish without one.
 - A map must be a **pure environment**: no cameras, players, or input systems.
 
 Run **Cover Up! → Maps → Validate Map** to check the contract before exporting.
+
+### Your preview image
+
+The preview isn't a thumbnail any more — the game's map browser draws it **full-width as
+the entire card**, with the title and stats laid over it. It's the only thing a player
+sees of your map before deciding to download it, so it's worth a real screenshot rather
+than an afterthought.
+
+- **Required to publish.** No preview, no Workshop upload.
+- **≈1280×720, 16:9.** Nothing is enforced — the exporter writes whatever texture you
+  assign — but the card centre-crops to fill, so a square or ultra-wide image loses a lot
+  of its height, and anything under 640 px wide looks soft blown up.
+- **Under 1 MB as PNG**, 8-bit. That's Steam's limit, and a publish silently fails without it.
+- Shoot it in-engine at a spot that reads as *your map* at a glance — the crop keeps the
+  middle, so put the subject there.
+
+**Validate Map** warns about all of the above before you get as far as publishing.
 
 ---
 

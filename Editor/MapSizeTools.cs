@@ -101,20 +101,12 @@ namespace CoverUp.EditorTools
             }
             else
             {
+                // Each role is checked against the guard rails on its own. There is
+                // deliberately NO check on the ratio BETWEEN them: sizing the two sides
+                // apart is the whole point of having two fields, and mouse-sized hiders
+                // against a human-sized hunter is a design, not a mistake to warn about.
                 WarnNearGuardRails("Hider", config.HiderScale, warnings);
                 WarnNearGuardRails("Hunter", config.HunterScale, warnings);
-
-                // Independent role scales are the point of the two fields, but
-                // the camera framing and the controller's step/skin tuning are
-                // shared, so a wide split needs a walk-through of BOTH roles.
-                float lo = Mathf.Max(0.0001f, Mathf.Min(config.HiderScale, config.HunterScale));
-                float ratio = Mathf.Max(config.HiderScale, config.HunterScale) / lo;
-                if (ratio > GameScale.AdvisedMaxRoleRatio)
-                {
-                    warnings.Add($"Hider and hunter scales differ by {ratio:0.#}× — past about " +
-                        $"{GameScale.AdvisedMaxRoleRatio:0.#}× the shared camera framing and controller " +
-                        "step/skin stop suiting both roles. Walk both before shipping.");
-                }
             }
             string scaleNote = config != null
                 ? $", hiders ≈ {GameScale.ApproxHeightMeters(config.HiderScale):0.00} m / " +

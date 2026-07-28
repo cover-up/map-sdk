@@ -232,7 +232,7 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.5.2"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.5.3"`.
    (By default both the game and the SDK use `~/CoverUpMaps` (Linux/macOS) or
    `Documents\CoverUpMaps` (Windows) — no path setup needed. To relocate, see
    *Changing the folder* above.)

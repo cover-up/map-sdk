@@ -64,6 +64,23 @@ namespace CoverUp.EditorTools
             }
             EditorGUILayout.EndHorizontal();
 
+            // Everything above is scale; this is a separate lever, so give it a rule
+            // and a header rather than letting it read as another scale control.
+            // A custom editor draws ONLY what it asks for — any field added to
+            // MapConfig from here on must be added here too or it is unreachable.
+            EditorGUILayout.Space();
+            SerializedProperty camera = serializedObject.FindProperty("hunterCamera");
+            EditorGUILayout.LabelField("Hunter Camera", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(camera, new GUIContent("Mode"));
+            if ((MapHunterCamera)camera.enumValueIndex != MapHunterCamera.Auto)
+            {
+                EditorGUILayout.HelpBox(
+                    "This map takes the camera choice away from the hunter: their toggle is "
+                    + "disabled and its on-screen hint is hidden for as long as the map is "
+                    + "loaded. Hiders are always third person and are unaffected.",
+                    MessageType.Info);
+            }
+
             serializedObject.ApplyModifiedProperties(); // routes through OnValidate → live preview
         }
     }

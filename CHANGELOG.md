@@ -5,6 +5,21 @@ All notable changes to the Cover Up! Map SDK. Format follows
 
 ## [Unreleased]
 
+## [0.5.4] — 2026-07-28
+
+### Fixed
+- **Reopening the editor silently overwrote a map's hunter scale with its hider scale.**
+  `MapConfigEditor`'s "Link roles" flag was a `static` initialised to `true`, so it reset on
+  every domain reload no matter what the map had authored — and the mirror ran on every
+  repaint, not just on edits. Reopening a project whose map used independent scales (say
+  0.2 / 1.0) came up linked, immediately wrote hider onto hunter, and marked the scene
+  dirty; saving made the loss permanent, with no edit and no warning.
+
+  The flag is now per-inspector and **derived from the data** — equal scales *is* what
+  linked means, so a map authored apart reopens unlinked and a fresh `MapConfig` (both at
+  Default) still reopens linked. Mirroring happens only in response to an actual edit or to
+  the toggle being switched on.
+
 ## [0.5.3] — 2026-07-28
 
 ### Fixed

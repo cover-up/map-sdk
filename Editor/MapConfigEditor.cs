@@ -22,9 +22,23 @@ namespace CoverUp.EditorTools
             ("Human", GameScale.Default),
         };
 
-        // On by default: most maps want both roles the same, and the link makes
-        // that the one-drag case instead of two drags that must be kept equal.
-        private static bool _linked = true;
+        // Per-inspector, and DERIVED from the data rather than defaulted — never
+        // static. It was both, and the combination silently destroyed authored
+        // scales: a static resets to its initialiser on every domain reload, so
+        // reopening the editor came up "linked" regardless of what the map said,
+        // and the first repaint mirrored hider onto hunter before the mapper had
+        // touched anything. A map authored 0.2 / 1.0 reopened as 0.2 / 0.2.
+        private bool _linked;
+
+        // Equal scales is what "linked" MEANS, so the data answers the question.
+        // A fresh MapConfig has both at Default and so comes up linked, which is
+        // the convenient default this was reaching for in the first place.
+        private void OnEnable()
+        {
+            SerializedProperty h = serializedObject.FindProperty("hiderScale");
+            SerializedProperty u = serializedObject.FindProperty("hunterScale");
+            _linked = h != null && u != null && Mathf.Approximately(h.floatValue, u.floatValue);
+        }
 
         public override void OnInspectorGUI()
         {
@@ -32,16 +46,23 @@ namespace CoverUp.EditorTools
             SerializedProperty hider = serializedObject.FindProperty("hiderScale");
             SerializedProperty hunter = serializedObject.FindProperty("hunterScale");
 
+            EditorGUI.BeginChangeCheck();
             _linked = EditorGUILayout.ToggleLeft(
                 new GUIContent("Link roles", "Keep hider and hunter at the same scale."),
                 _linked);
+            bool linkJustEnabled = EditorGUI.EndChangeCheck() && _linked;
 
+            EditorGUI.BeginChangeCheck();
             EditorGUILayout.PropertyField(hider, new GUIContent("Hider Scale"));
+            bool hiderEdited = EditorGUI.EndChangeCheck();
+
             using (new EditorGUI.DisabledScope(_linked))
             {
                 EditorGUILayout.PropertyField(hunter, new GUIContent("Hunter Scale"));
             }
-            if (_linked) hunter.floatValue = hider.floatValue;
+            // Mirror only in response to an actual edit. Mirroring on every repaint
+            // is what let a stale link flag rewrite a map nobody was editing.
+            if (_linked && (hiderEdited || linkJustEnabled)) hunter.floatValue = hider.floatValue;
 
             EditorGUILayout.HelpBox(
                 $"Hider ≈ {GameScale.ApproxHeightMeters(hider.floatValue):0.00} m tall, " +

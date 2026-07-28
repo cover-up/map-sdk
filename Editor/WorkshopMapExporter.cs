@@ -222,9 +222,12 @@ namespace CoverUp.EditorTools
         {
             var c = new WorkshopContract();
             MapConfig cfg = FindInScene<MapConfig>(scene);
-            float scale = cfg != null ? cfg.PlayerScale : GameScale.Default;
-            c.playerScale = scale;
-            c.approxDollMeters = GameScale.ApproxHeightMeters(scale);
+            float hider = cfg != null ? cfg.HiderScale : GameScale.Default;
+            float hunter = cfg != null ? cfg.HunterScale : GameScale.Default;
+            c.hiderScale = hider;
+            c.hunterScale = hunter;
+            c.approxHiderMeters = GameScale.ApproxHeightMeters(hider);
+            c.approxHunterMeters = GameScale.ApproxHeightMeters(hunter);
             c.hasSpawn = FindInScene<MapSpawnDisc>(scene) != null;
 
             MapSizeVariants variants = MapSizeVariants.FindInScene(scene);

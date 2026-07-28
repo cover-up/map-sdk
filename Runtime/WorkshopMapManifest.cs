@@ -13,7 +13,7 @@ namespace CoverUp.Gameplay
     [Serializable]
     public sealed class WorkshopMapManifest
     {
-        public const int CurrentFormat = 1;
+        public const int CurrentFormat = 2;
         public const string FileName = "map.json";
 
         public int format = CurrentFormat;
@@ -137,11 +137,18 @@ namespace CoverUp.Gameplay
     [Serializable] public sealed class WorkshopBundles { public WorkshopBundleRef windows; public WorkshopBundleRef linux; }
     [Serializable] public sealed class WorkshopBundleRef { public string file; public string sha256; }
 
+    // format 2 (per-role player scale): playerScale/approxDollMeters were
+    // replaced by the hider/hunter pair. A format-1 manifest still parses —
+    // the new fields simply read 0 — and that is harmless, because the
+    // contract block is DESCRIPTIVE: the scales the game actually applies come
+    // from the MapConfig inside the bundle, never from map.json.
     [Serializable]
     public sealed class WorkshopContract
     {
-        public float playerScale;
-        public float approxDollMeters;
+        public float hiderScale;
+        public float hunterScale;
+        public float approxHiderMeters;
+        public float approxHunterMeters;
         public string[] sizes = Array.Empty<string>();
         public bool hasSpawn;
     }

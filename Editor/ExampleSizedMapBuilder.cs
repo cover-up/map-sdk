@@ -102,7 +102,10 @@ namespace CoverUp.EditorTools
             // ---- the contract root ------------------------------------------------
             var root = new GameObject("_CoverUpMap");
             var cfg = root.AddComponent<MapConfig>();
-            SetFloat(cfg, "playerScale", 1.185f); // ≈ 1.6 m dolls, matching the room scale
+            // Both roles at the same scale — the example demonstrates the size
+            // variants, not asymmetric roles. ≈ 1.6 m dolls, matching the rooms.
+            SetFloat(cfg, "hiderScale", 1.185f);
+            SetFloat(cfg, "hunterScale", 1.185f);
             var variants = root.AddComponent<MapSizeVariants>();
 
             // Workshop authoring metadata (read by Export Workshop Map into map.json).

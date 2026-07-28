@@ -94,16 +94,29 @@ namespace CoverUp.EditorTools
             MapConfig config = FindInScene<MapConfig>(scene);
             if (config == null)
             {
-                warnings.Add($"No MapConfig — the map runs at the default player scale " +
+                warnings.Add($"No MapConfig — the map runs both roles at the default player scale " +
                     $"(dolls ≈ {GameScale.ApproxHeightMeters(GameScale.Default):0.00} m). Add one to the _CoverUpMap root.");
             }
-            else if (config.PlayerScale <= 0.1f || config.PlayerScale >= 1.9f)
+            else
             {
-                warnings.Add($"Player scale {config.PlayerScale:0.###} (dolls ≈ " +
-                    $"{GameScale.ApproxHeightMeters(config.PlayerScale):0.00} m) sits near the guard rails — intended?");
+                WarnNearGuardRails("Hider", config.HiderScale, warnings);
+                WarnNearGuardRails("Hunter", config.HunterScale, warnings);
+
+                // Independent role scales are the point of the two fields, but
+                // the camera framing and the controller's step/skin tuning are
+                // shared, so a wide split needs a walk-through of BOTH roles.
+                float lo = Mathf.Max(0.0001f, Mathf.Min(config.HiderScale, config.HunterScale));
+                float ratio = Mathf.Max(config.HiderScale, config.HunterScale) / lo;
+                if (ratio > GameScale.AdvisedMaxRoleRatio)
+                {
+                    warnings.Add($"Hider and hunter scales differ by {ratio:0.#}× — past about " +
+                        $"{GameScale.AdvisedMaxRoleRatio:0.#}× the shared camera framing and controller " +
+                        "step/skin stop suiting both roles. Walk both before shipping.");
+                }
             }
             string scaleNote = config != null
-                ? $", dolls ≈ {GameScale.ApproxHeightMeters(config.PlayerScale):0.00} m"
+                ? $", hiders ≈ {GameScale.ApproxHeightMeters(config.HiderScale):0.00} m / " +
+                  $"hunters ≈ {GameScale.ApproxHeightMeters(config.HunterScale):0.00} m"
                 : ", default scale";
 
             CheckWorkshopMetadata(scene, warnings);
@@ -238,6 +251,13 @@ namespace CoverUp.EditorTools
             var sb = new StringBuilder(t.name);
             for (Transform p = t.parent; p != null; p = p.parent) sb.Insert(0, p.name + "/");
             return sb.ToString();
+        }
+
+        private static void WarnNearGuardRails(string role, float scale, List<string> warnings)
+        {
+            if (scale > 0.1f && scale < 1.9f) return;
+            warnings.Add($"{role} scale {scale:0.###} (dolls ≈ " +
+                $"{GameScale.ApproxHeightMeters(scale):0.00} m) sits near the guard rails — intended?");
         }
 
         private static T FindInScene<T>(Scene scene) where T : Component

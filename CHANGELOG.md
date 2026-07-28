@@ -5,6 +5,15 @@ All notable changes to the Cover Up! Map SDK. Format follows
 
 ## [Unreleased]
 
+## [0.5.3] — 2026-07-28
+
+### Fixed
+- **`MapConfig ▸ Hunter Camera` was invisible in the Inspector.** `MapConfigEditor` is a
+  custom editor, and a custom editor draws only the fields it explicitly asks for — it drew
+  the two scale sliders and never the camera field, so the per-map hunter camera added in
+  0.5.0 could not be set at all without hand-editing scene YAML. It now draws under its own
+  header, with a note about what a forced mode does to the player's toggle.
+
 ## [0.5.2] — 2026-07-28
 
 ### Added

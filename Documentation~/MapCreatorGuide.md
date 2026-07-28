@@ -81,19 +81,32 @@ Every map scene is built from the template's `_CoverUpMap` root:
 
 ```
 _CoverUpMap                [MapConfig, MapSizeVariants, WorkshopMapInfo]
-├── Base                    spawn disc + shared geometry (always present)
+├── Base                    everything shared across sizes (always present)
+│   ├── Fixtures            spawn disc, the arena sun — the map breaks without these
+│   └── Content             your geometry and props
 └── Sizes                   (optional) size variants
     ├── Small               bounds + doors for the small build
     ├── Medium
     └── Large
 ```
 
+**The `Fixtures` / `Content` split is required**, not a suggestion: Validate Map errors if
+either group is missing or if anything sits loose directly under `Base`, and the exporter
+refuses a scene with errors. The reason is deletion safety — a handful of objects keep your
+map loadable, and thousands are yours to gut and rebuild. Keeping them apart means "select
+everything in `Content` and start over" is a safe move.
+
+Building your map onto the example? Everything you add goes in `Content`. Migrating a scene
+you made earlier (or one built flat, with no `_CoverUpMap` root at all)? Run
+**Cover Up! → Maps → Group Base** once — it creates the groups and sorts what's already
+there, moving nothing out of the scene and deleting nothing.
+
 - **`MapConfig`** — player/doll scale for the map (a slider with a live "≈ X m tall"
   readout).
-- **`MapSpawnDisc`** (in `Base`) — where players land. Required.
+- **`MapSpawnDisc`** (in `Base/Fixtures`) — where players land. Required.
 - **`MapSizeVariants`** (optional) — small/medium/large variants of the same map;
   smaller sizes *add* doors/boundaries. Bounds volumes live **only** inside the size
-  roots, never in `Base`.
+  roots, never in `Base`. On a one-size map they belong in `Base/Fixtures`.
 - **`WorkshopMapInfo`** — title, description, tags, preview image (read into
   `map.json` on export). See **Your preview image** below — it's the whole card players
   see, and you can't publish without one.
@@ -127,7 +140,7 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.3.0"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.4.0"`.
    (By default both the game and the SDK use `~/Documents/CoverUpMaps` — no path
    setup needed. To relocate, see *Changing the folder* above.)
 3. Build your map from the `_CoverUpMap` template. **Cover Up! → Maps → Create

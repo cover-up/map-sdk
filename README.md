@@ -28,7 +28,7 @@ open it in Unity 6000.5, and you're ready to author — skip the manual setup be
 **Manual — add to your own URP project.** In `Packages/manifest.json`:
 
 ```json
-"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.3.0"
+"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.4.0"
 ```
 
 (Your project must be URP on Unity 6000.5. If you have no URP asset yet, create one via

@@ -22,8 +22,10 @@ namespace CoverUp.EditorTools
     /// each size folder only ADDS its keep-in <see cref="MapBoundsVolume"/>(s)
     /// and the door plugs. Scene tree (the _CoverUpMap contract):
     ///
-    ///   _CoverUpMap            [MapConfig, MapSizeVariants]
-    ///   ├── Base                floor, outer + divider walls, spawn, sun
+    ///   _CoverUpMap            [MapConfig, MapSizeVariants, WorkshopMapInfo]
+    ///   ├── Base
+    ///   │   ├── Fixtures        spawn disc + the arena sun — the map breaks without these
+    ///   │   └── Content         floor, outer + divider walls (your geometry goes here)
     ///   └── Sizes
     ///       ├── Small           Bounds(room 1)      + Door 1↔2
     ///       ├── Medium          Bounds(rooms 1–2)   + Door 2↔3
@@ -87,7 +89,7 @@ namespace CoverUp.EditorTools
             System.IO.Directory.CreateDirectory(MaterialFolder);
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            ArenaStandards.BuildLighting();
+            Light sun = ArenaStandards.BuildLighting();
 
             Material floorMat = ArenaStandards.SurfaceMaterial(MaterialFolder, SceneName + "_floor", FloorCol);
             Material wallMat = ArenaStandards.SurfaceMaterial(MaterialFolder, SceneName + "_wall", WallCol);
@@ -122,27 +124,36 @@ namespace CoverUp.EditorTools
             infoSo.ApplyModifiedPropertiesWithoutUndo();
 
             // ---- Base: everything shared across sizes -----------------------------
-            var baseRoot = Child(root.transform, "Base");
-            Surface(baseRoot, "Floor", new Vector3(0f, -0.05f, 0f), new Vector3(RoomLen * 3f, 0.1f, RoomWide), floorMat, true);
+            // Split in two on purpose: Fixtures holds the few objects the contract
+            // needs and a mapper must not delete; Content holds the geometry they
+            // are expected to gut and replace with their own map.
+            var baseRoot = Child(root.transform, MapContract.Base);
+            var fixtures = Child(baseRoot, MapContract.Fixtures);
+            var content = Child(baseRoot, MapContract.Content);
+
+            sun.transform.SetParent(fixtures, true);
+
+            Surface(content, "Floor", new Vector3(0f, -0.05f, 0f), new Vector3(RoomLen * 3f, 0.1f, RoomWide), floorMat, true);
 
             // Outer perimeter.
-            Surface(baseRoot, "Wall_W", new Vector3(-halfX, WallH / 2f, 0f), new Vector3(WallT, WallH, RoomWide), wallMat, true);
-            Surface(baseRoot, "Wall_E", new Vector3(halfX, WallH / 2f, 0f), new Vector3(WallT, WallH, RoomWide), wallMat, true);
-            Surface(baseRoot, "Wall_N", new Vector3(0f, WallH / 2f, halfZ), new Vector3(RoomLen * 3f, WallH, WallT), wallMat, true);
-            Surface(baseRoot, "Wall_S", new Vector3(0f, WallH / 2f, -halfZ), new Vector3(RoomLen * 3f, WallH, WallT), wallMat, true);
+            Surface(content, "Wall_W", new Vector3(-halfX, WallH / 2f, 0f), new Vector3(WallT, WallH, RoomWide), wallMat, true);
+            Surface(content, "Wall_E", new Vector3(halfX, WallH / 2f, 0f), new Vector3(WallT, WallH, RoomWide), wallMat, true);
+            Surface(content, "Wall_N", new Vector3(0f, WallH / 2f, halfZ), new Vector3(RoomLen * 3f, WallH, WallT), wallMat, true);
+            Surface(content, "Wall_S", new Vector3(0f, WallH / 2f, -halfZ), new Vector3(RoomLen * 3f, WallH, WallT), wallMat, true);
 
             // Divider walls: two segments each, leaving a central doorway gap the
             // per-size doors plug. Segment length = (RoomWide - DoorGap) / 2.
-            DividerWithGap(baseRoot, "Divider_1", d12, wallMat);
-            DividerWithGap(baseRoot, "Divider_2", d23, wallMat);
+            DividerWithGap(content, "Divider_1", d12, wallMat);
+            DividerWithGap(content, "Divider_2", d23, wallMat);
 
-            // Spawn sits in room 1 — Small always contains it, so it stays in Base.
-            var spawn = Child(baseRoot, "MapSpawnDisc");
+            // Spawn sits in room 1 — Small always contains it, so it stays in Base
+            // (under Fixtures: losing it is one of the ways a map stops loading).
+            var spawn = Child(fixtures, "MapSpawnDisc");
             spawn.localPosition = new Vector3(x1, 0f, 0f);
             spawn.gameObject.AddComponent<MapSpawnDisc>();
 
             // ---- Sizes: each only ADDS bounds + door plugs ------------------------
-            var sizesRoot = Child(root.transform, "Sizes");
+            var sizesRoot = Child(root.transform, MapContract.Sizes);
 
             // Small: jailed in room 1 (west wall .. divider 1). Door plugs 1↔2.
             var small = Child(sizesRoot, "Small");

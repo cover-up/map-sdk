@@ -125,23 +125,45 @@ namespace CoverUp.EditorTools
             MapSpawnDisc spawn = MapSpawnDisc.FindInScene(scene);
             var bounds = FindAllInScene<MapBoundsVolume>(scene);
 
+            // Size roots, hoisted out of the sized-map branch below: the grouping
+            // checks need to know which objects are size roots (they belong under
+            // Sizes, never inside Base).
+            var roots = new List<Transform>();
+            if (variants != null)
+            {
+                foreach (MapSize s in AllSizes)
+                {
+                    GameObject r = variants.Root(s);
+                    if (r != null) roots.Add(r.transform);
+                }
+            }
+
+            CheckBaseGrouping(scene, spawn, roots, errors, warnings);
+
             if (variants == null)
             {
-                // One-size map: legal. Bounds may live anywhere; just sanity-check
-                // the essentials so a plain map still gets a verdict.
+                // One-size map: legal. With no size roots the bounds have nowhere
+                // else to be, so they're fixtures like the spawn — said as a
+                // warning, since a volume under Content still clamps correctly.
                 if (spawn == null) errors.Add("No MapSpawnDisc — players have nowhere to land.");
                 if (bounds.Count == 0)
                     warnings.Add("No MapBoundsVolume — players are not kept inside the map.");
+                Transform oneSizeFixtures = MapContract.FindChild(
+                    MapContract.FindChild(MapContract.FindRoot(scene), MapContract.Base), MapContract.Fixtures);
+                if (oneSizeFixtures != null)
+                {
+                    foreach (MapBoundsVolume b in bounds)
+                    {
+                        if (!b.transform.IsChildOf(oneSizeFixtures))
+                            warnings.Add($"MapBoundsVolume '{Path(b.transform)}' is outside " +
+                                $"'{MapContract.Base}/{MapContract.Fixtures}' — on a one-size map the bounds " +
+                                "are infrastructure, and belong with the other fixtures.");
+                    }
+                }
                 return (errors, warnings, "one-size map (no MapSizeVariants)" + scaleNote);
             }
 
             // Sized map: enforce the container contract.
-            var roots = new List<Transform>();
-            foreach (MapSize s in AllSizes)
-            {
-                GameObject r = variants.Root(s);
-                if (r != null) roots.Add(r.transform);
-            }
             if (roots.Count == 0)
                 errors.Add("MapSizeVariants has no size roots assigned — build at least one (Small/Medium/Large).");
 
@@ -158,8 +180,8 @@ namespace CoverUp.EditorTools
             if (spawn == null)
                 errors.Add("No MapSpawnDisc — players have nowhere to land.");
             else if (InsideAnyRoot(spawn.transform, roots))
-                errors.Add($"MapSpawnDisc '{Path(spawn.transform)}' is inside a size root — " +
-                           "the spawn belongs in Base so it exists at every size.");
+                errors.Add($"MapSpawnDisc '{Path(spawn.transform)}' is inside a size root — the spawn " +
+                           $"belongs in {MapContract.Base}/{MapContract.Fixtures} so it exists at every size.");
 
             // A size root with no bounds of its own is almost always an authoring
             // slip (that size would fall back to whatever volumes happen to be
@@ -172,10 +194,145 @@ namespace CoverUp.EditorTools
                     warnings.Add($"Size '{s}' has no MapBoundsVolume — players won't be contained at that size.");
             }
 
+            // Auto-size brackets. AutoThresholds already sanitizes, so compare
+            // against the RAW serialized values to catch a mapper who typed a
+            // pair that silently got corrected rather than honoured.
+            var so = new SerializedObject(variants);
+            int rawSmall = so.FindProperty("smallMaxPlayers").intValue;
+            int rawMedium = so.FindProperty("mediumMaxPlayers").intValue;
+            (int smallMax, int mediumMax) = variants.AutoThresholds;
+            if (rawSmall != smallMax || rawMedium != mediumMax)
+            {
+                warnings.Add($"Auto-size brackets {rawSmall}/{rawMedium} were corrected to " +
+                    $"{smallMax}/{mediumMax} — Small Max must be at least {MapSizeRules.MinThreshold} " +
+                    "and Medium Max must exceed it, or Medium is unreachable.");
+            }
+            // A bracket only fires if the size it selects was actually built.
+            // Silent otherwise: the clamp walk still lands somewhere sensible,
+            // but the mapper's numbers aren't doing what they think.
+            if ((variants.BuiltMask & (1 << (int)MapSize.Small)) == 0
+                || (variants.BuiltMask & (1 << (int)MapSize.Medium)) == 0)
+            {
+                warnings.Add($"Auto brackets are set (≤{smallMax} Small, ≤{mediumMax} Medium) but not " +
+                    "every size is built — unbuilt sizes clamp to a neighbour, so some brackets " +
+                    "won't resolve to the size they name.");
+            }
+
             string built = (variants.BuiltMask & 1) != 0 ? "S" : "-";
             built += (variants.BuiltMask & 2) != 0 ? "M" : "-";
             built += (variants.BuiltMask & 4) != 0 ? "L" : "-";
-            return (errors, warnings, $"sized map (built: {built}){scaleNote}");
+            return (errors, warnings,
+                $"sized map (built: {built}, auto ≤{smallMax} S / ≤{mediumMax} M){scaleNote}");
+        }
+
+        /// <summary>
+        /// The Base grouping contract (SDK 0.4.0): a map scene is
+        /// <c>_CoverUpMap → Base → {Fixtures, Content}</c>, with the size roots
+        /// under <c>Sizes</c>. Enforced as ERRORS — the exporter refuses a scene
+        /// that isn't in the shape — so that the objects a map cannot lose sit
+        /// visibly apart from the geometry a mapper rebuilds at will.
+        ///
+        /// The one exemption is a scene with no <c>_CoverUpMap</c> root at all:
+        /// the game's own box_* maps predate the contract and are flat. That's a
+        /// warning pointing at Group Base, not an error — those maps ship from the
+        /// game's build, never through the exporter.
+        /// </summary>
+        private static void CheckBaseGrouping(Scene scene, MapSpawnDisc spawn, List<Transform> sizeRoots,
+                                              List<string> errors, List<string> warnings)
+        {
+            Transform root = MapContract.FindRoot(scene);
+            if (root == null)
+            {
+                warnings.Add($"No '{MapContract.Root}' root — this scene predates the contract shape. " +
+                    $"Run Cover Up!/Maps/Group Base to sort it into {MapContract.Root} → {MapContract.Base} → " +
+                    $"{MapContract.Fixtures}/{MapContract.Content}.");
+                return;
+            }
+
+            // Objects left at the scene root are outside the map's own hierarchy.
+            // Nothing breaks at runtime (the bundle carries the whole scene), so
+            // this is a warning — but it's how the sun ends up unowned, since a
+            // new scene starts with it there.
+            var strays = new List<string>();
+            foreach (GameObject go in scene.GetRootGameObjects())
+                if (go.transform != root) strays.Add(go.name);
+            if (strays.Count > 0)
+            {
+                string names = string.Join(", ", strays.GetRange(0, Mathf.Min(5, strays.Count)));
+                if (strays.Count > 5) names += $", … (+{strays.Count - 5} more)";
+                warnings.Add($"{strays.Count} object(s) sit outside '{MapContract.Root}' ({names}) — " +
+                    "the whole map belongs under the contract root. Run Cover Up!/Maps/Group Base.");
+            }
+
+            Transform baseT = MapContract.FindChild(root, MapContract.Base);
+            if (baseT == null)
+            {
+                errors.Add($"'{MapContract.Root}' has no '{MapContract.Base}' group — everything shared " +
+                    "across sizes lives there. Run Cover Up!/Maps/Group Base.");
+                return;
+            }
+
+            Transform fixtures = MapContract.FindChild(baseT, MapContract.Fixtures);
+            Transform content = MapContract.FindChild(baseT, MapContract.Content);
+            if (fixtures == null)
+            {
+                errors.Add($"'{MapContract.Base}' has no '{MapContract.Fixtures}' group — the spawn disc, " +
+                    "lighting and (on a one-size map) the bounds volumes live there, apart from your own " +
+                    "geometry, so it's obvious what must not be deleted. Run Cover Up!/Maps/Group Base.");
+            }
+            if (content == null)
+            {
+                errors.Add($"'{MapContract.Base}' has no '{MapContract.Content}' group — your geometry and " +
+                    "props live there. Run Cover Up!/Maps/Group Base.");
+            }
+
+            // A loose object under Base defeats the split: the next mapper can't
+            // tell whether it is safe to delete.
+            var loose = new List<string>();
+            foreach (Transform child in MapContract.Children(baseT))
+            {
+                if (child == fixtures || child == content) continue;
+                loose.Add(child.name);
+            }
+            if (loose.Count > 0)
+            {
+                string names = string.Join(", ", loose.GetRange(0, Mathf.Min(5, loose.Count)));
+                if (loose.Count > 5) names += $", … (+{loose.Count - 5} more)";
+                errors.Add($"{loose.Count} object(s) sit directly under '{MapContract.Base}' ({names}) — " +
+                    $"everything under {MapContract.Base} belongs in '{MapContract.Fixtures}' or " +
+                    $"'{MapContract.Content}'. Run Cover Up!/Maps/Group Base.");
+            }
+
+            // The spawn is the fixture that matters most: a map that loses it has
+            // nowhere to put players.
+            if (spawn != null && fixtures != null
+                && !spawn.transform.IsChildOf(fixtures) && !InsideAnyRoot(spawn.transform, sizeRoots))
+            {
+                errors.Add($"MapSpawnDisc '{Path(spawn.transform)}' is outside " +
+                    $"'{MapContract.Base}/{MapContract.Fixtures}' — that's where the contract keeps it.");
+            }
+
+            // Size roots are per-size by definition; one inside Base would apply
+            // its geometry to every size.
+            foreach (Transform sr in sizeRoots)
+            {
+                if (sr.IsChildOf(baseT))
+                    errors.Add($"Size root '{Path(sr)}' is inside '{MapContract.Base}' — size roots belong " +
+                        $"under '{MapContract.Root}/{MapContract.Sizes}'.");
+            }
+
+            // The sun is a fixture too, but a mapper lighting rooms with point and
+            // spot lamps is authoring content — only the directional light is held
+            // to the rule, and only as a warning.
+            foreach (Light light in FindAllInScene<Light>(scene))
+            {
+                if (light.type != LightType.Directional) continue;
+                if (fixtures != null && light.transform.IsChildOf(fixtures)) continue;
+                if (!light.transform.IsChildOf(root)) continue; // already reported as a stray
+                warnings.Add($"Directional light '{Path(light.transform)}' is outside " +
+                    $"'{MapContract.Base}/{MapContract.Fixtures}' — the arena sun is a fixture; " +
+                    "keeping it there stops it being deleted with the geometry.");
+            }
         }
 
         /// <summary>

@@ -37,6 +37,29 @@ namespace CoverUp.Gameplay
                  "the loader applies the host-resolved size at door-open. Preview Size keeps this in sync.")]
         private MapSize soloWalkSize = MapSize.Medium;
 
+        [SerializeField]
+        [Tooltip("AUTO size only: the most players this map still wants to run Small for. " +
+                 "Above this it goes Medium. Ignored when the host forces a size in the lobby.")]
+        private int smallMaxPlayers = MapSizeRules.DefaultSmallMaxPlayers;
+
+        [SerializeField]
+        [Tooltip("AUTO size only: the most players this map still wants to run Medium for. " +
+                 "Above this it goes Large. Must be greater than Small Max Players.")]
+        private int mediumMaxPlayers = MapSizeRules.DefaultMediumMaxPlayers;
+
+        /// <summary>The map's own auto-size brackets, sanitized. Read by the
+        /// host before it resolves the round's size; a map that leaves these
+        /// alone gets the shipped defaults and behaves exactly as before.</summary>
+        public (int SmallMax, int MediumMax) AutoThresholds
+        {
+            get
+            {
+                int s = smallMaxPlayers, m = mediumMaxPlayers;
+                MapSizeRules.Sanitize(ref s, ref m);
+                return (s, m);
+            }
+        }
+
         // Solo/editor path (Walk Through, solo Play → scene loaded single/active):
         // pick a single size so authored-active roots don't overlap. Mirrors
         // MapConfig.Awake — the additive multiplayer path is NOT active at Awake,

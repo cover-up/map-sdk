@@ -231,7 +231,17 @@ namespace CoverUp.EditorTools
             c.hasSpawn = FindInScene<MapSpawnDisc>(scene) != null;
 
             MapSizeVariants variants = MapSizeVariants.FindInScene(scene);
-            if (variants == null) { c.sizes = new[] { "OneSize" }; return c; }
+            if (variants == null)
+            {
+                // One-size map: the brackets can never fire (the clamp lands on
+                // the only built size), so report the defaults rather than
+                // implying an auto-size behaviour this map doesn't have.
+                c.sizes = new[] { "OneSize" };
+                c.autoSmallMaxPlayers = MapSizeRules.DefaultSmallMaxPlayers;
+                c.autoMediumMaxPlayers = MapSizeRules.DefaultMediumMaxPlayers;
+                return c;
+            }
+            (c.autoSmallMaxPlayers, c.autoMediumMaxPlayers) = variants.AutoThresholds;
             var sizes = new List<string>();
             if ((variants.BuiltMask & 1) != 0) sizes.Add("Small");
             if ((variants.BuiltMask & 2) != 0) sizes.Add("Medium");

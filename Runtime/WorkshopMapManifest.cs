@@ -150,6 +150,12 @@ namespace CoverUp.Gameplay
         public float approxHiderMeters;
         public float approxHunterMeters;
         public string[] sizes = Array.Empty<string>();
+        // AUTO-size brackets the map authored (MapSizeVariants): ≤ smallMax →
+        // Small, ≤ mediumMax → Medium, else Large. Advisory like the rest of
+        // this block — the host reads the real values off the loaded scene —
+        // but it lets the browser say who a map is built for before download.
+        public int autoSmallMaxPlayers;
+        public int autoMediumMaxPlayers;
         public bool hasSpawn;
     }
 

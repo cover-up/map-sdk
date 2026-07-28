@@ -3,6 +3,56 @@
 All notable changes to the Cover Up! Map SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this package uses semantic versioning.
 
+## [0.4.0] — 2026-07-28
+
+### Changed — BREAKING
+- **`Base` is now split into `Fixtures` and `Content`.** The map shape is
+  `_CoverUpMap → Base → {Fixtures, Content}`, with the size roots under `Sizes`:
+
+  ```
+  _CoverUpMap            [MapConfig, MapSizeVariants, WorkshopMapInfo]
+  ├── Base
+  │   ├── Fixtures        spawn disc, the arena sun, one-size bounds
+  │   └── Content         your geometry and props
+  └── Sizes
+      ├── Small / Medium / Large
+  ```
+
+  The point is deletion safety: the handful of objects a map cannot lose sit apart from
+  the thousands a mapper freely rebuilds, so "delete Content and start over" is a safe
+  move and "delete Fixtures" is visibly not. **Validate Map now errors** on a missing
+  group, on anything loose directly under `Base`, on a spawn outside `Fixtures`, and on a
+  size root inside `Base` — and the exporter refuses a scene with errors, so this is a
+  hard gate on export, not advice. A directional light outside `Fixtures` is a warning.
+- **Migrate an existing map with `Cover Up! ▸ Maps ▸ Group Base`.** It creates the missing
+  groups and re-parents what's in the wrong place — spawn, bounds and lights into
+  `Fixtures`, everything else into `Content` — and never deletes anything. It also adopts a
+  flat scene with no `_CoverUpMap` root at all (it creates one and moves every loose root
+  object in). Undoable; save and re-run Validate Map afterwards.
+- A scene with **no `_CoverUpMap` root** is warned, not errored — the game's own `box_*`
+  maps predate the contract and never pass through the exporter.
+
+### Added
+- **Per-map auto-size brackets.** `MapSizeVariants` gains `smallMaxPlayers` (10) and
+  `mediumMaxPlayers` (22) — the player counts at which *this* map switches Small → Medium →
+  Large when the lobby's Map Size is **Auto**. Defaults reproduce the previous global
+  behaviour exactly, and a forced Small/Medium/Large in the lobby ignores them as it always
+  ignored the player count. `MapSizeRules.ForPlayers`/`Resolve` gain overloads taking the
+  brackets; the old signatures remain and use the defaults. Values are sanitized
+  (`MapSizeRules.Sanitize`) because a Workshop map's numbers are untrusted input. Host-side
+  only — the host still ships just the resolved `MapSize` byte, so **no wire change**.
+  `map.json`'s contract gains advisory `autoSmallMaxPlayers` / `autoMediumMaxPlayers`.
+- Validate Map: warns when authored brackets get sanitized, and when brackets are set on a
+  map that hasn't built every size (unbuilt sizes clamp to a neighbour, so those brackets
+  don't resolve to the size they name). The summary line reports the map's brackets.
+- `MapContract` — the reserved group names in one place, shared by the builder, Validate Map
+  and Group Base.
+- Headless migration: `-executeMethod CoverUp.EditorTools.MapBaseGrouping.RunHeadless
+  -mapScene Assets/…/my_map.unity` groups, saves and validates a map scene without opening
+  the editor, exiting non-zero if the scene still has contract errors.
+- Validate Map warns about objects left at the scene root, outside `_CoverUpMap` — which is
+  where a new scene puts the directional light, so it's the usual reason the sun is unowned.
+
 ## [0.3.0] — 2026-07-28
 
 ### Changed — BREAKING

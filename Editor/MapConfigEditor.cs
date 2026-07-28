@@ -52,16 +52,6 @@ namespace CoverUp.EditorTools
                 $"(each clamped to {GameScale.MinScale:0.##}–{GameScale.MaxScale:0.##}).",
                 MessageType.Info);
 
-            float ratio = RoleRatio(hider.floatValue, hunter.floatValue);
-            if (ratio > GameScale.AdvisedMaxRoleRatio)
-            {
-                EditorGUILayout.HelpBox(
-                    $"The roles differ by {ratio:0.#}×. Past about {GameScale.AdvisedMaxRoleRatio:0.#}× " +
-                    "the shared camera framing and the controller's step/skin tuning stop suiting " +
-                    "both roles at once — walk both of them before shipping. Also note a hunter " +
-                    "that big moves proportionally faster.",
-                    MessageType.Warning);
-            }
 
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.PrefixLabel("Presets");
@@ -75,12 +65,6 @@ namespace CoverUp.EditorTools
             EditorGUILayout.EndHorizontal();
 
             serializedObject.ApplyModifiedProperties(); // routes through OnValidate → live preview
-        }
-
-        private static float RoleRatio(float a, float b)
-        {
-            float lo = Mathf.Max(0.0001f, Mathf.Min(a, b));
-            return Mathf.Max(a, b) / lo;
         }
     }
 }

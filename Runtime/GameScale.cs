@@ -48,11 +48,6 @@ namespace CoverUp.Core
         public const float AuthoredBodyMeters = 1.35f;
         public static float ApproxHeightMeters(float scale) => scale * AuthoredBodyMeters;
 
-        // Past this ratio the shared camera framing and CharacterController
-        // step/skin tuning stop suiting both roles at once. Advisory only — the
-        // map tooling warns, nothing clamps.
-        public const float AdvisedMaxRoleRatio = 2f;
-
         /// <summary>Doll-to-world scale for hiders. Set once per map load (before
         /// players wake) via <see cref="SetPlayerScales"/>.</summary>
         public static float Hider { get; private set; } = Default;

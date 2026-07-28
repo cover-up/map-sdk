@@ -5,6 +5,17 @@ All notable changes to the Cover Up! Map SDK. Format follows
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-07-28
+
+### Removed
+- **The role-scale divergence warning, and `GameScale.AdvisedMaxRoleRatio` with it.** Both
+  Validate Map and the `MapConfig` inspector used to warn once hider and hunter scales differed
+  by more than 2×. That was wrong: sizing the two sides far apart is the *whole point* of having
+  two fields, so the check fired hardest on exactly the maps using the feature as intended —
+  a warning that means "you did the thing" is noise, and noise trains mappers to ignore the
+  list that also holds the real errors. Each role is still checked against the scale guard
+  rails on its own; only the comparison between them is gone.
+
 ## [0.5.0] — 2026-07-28
 
 ### Added

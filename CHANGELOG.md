@@ -3,6 +3,48 @@
 All notable changes to the Cover Up! Map SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this package uses semantic versioning.
 
+## [Unreleased]
+
+## [0.5.0] — 2026-07-28
+
+### Added
+- **Per-role spawns (`MapSpawnDisc.Role`).** A disc can now place `Both` (the default),
+  `Hiders` or `Hunters`, so a map can open with hiders deep in the space and hunters held
+  at an entrance instead of everyone materialising on one point. Discs draw green/orange/
+  cyan by role in the scene view.
+
+  **Additive, not a migration.** `Both` is the default and the value every existing disc
+  deserializes to, and a dedicated disc only overrides its own side — adding a `Hunters`
+  disc to a map that has a `Both` disc leaves hiders exactly where they were. Several discs
+  may share a role; a player lands in a random one of them, which is a cheap way to spread a
+  spawn out. **Validate Map** now errors if either side has nowhere to land, and checks
+  every disc — not just the first — for the size-root and `Fixtures` placement rules.
+
+- **Per-map hunter camera (`MapConfig ▸ Hunter Camera`).** `Auto` (default) leaves the
+  player's toggle alone; `ThirdPerson`/`FirstPerson` force it for that map and hide the
+  toggle's on-screen hint. Corridors and open arenas want different cameras, and that's a
+  property of the space, so the mapper decides. Hiders are unaffected. Applied at the
+  door-open transition and released on return to the island, so it never touches the lobby.
+
+- **Scale reference dolls (`MapReferenceDoll`).** Stand-in bodies at the map's authored
+  player height, for judging scale while building: drop one beside a doorway or at the end
+  of a sightline and see whether a hider actually fits. Height comes from the scene's
+  `MapConfig` for the doll's role, so dragging a scale slider resizes every doll live —
+  nothing is baked. Place any number, anywhere; hider and hunter draw in different colours
+  and are labelled with their height in metres.
+
+  **They never ship.** The doll is drawn entirely as a gizmo — no mesh, renderer or
+  collider — so it cannot render outside the editor by construction. On top of that the
+  GameObject force-tags itself `EditorOnly`, so Unity's build pipeline strips it from the
+  exported bundle, and **Validate Map errors** if that tag is ever missing. Even a doll
+  that somehow survived all three would be an empty transform with an inert component.
+
+  The starter map ships one of each, standing in its own side's spawn disc, in a new
+  `_CoverUpMap/Reference` group.
+  Add them to an existing map with **Cover Up! ▸ Maps ▸ Add Reference Dolls**. Because they
+  never ship, they're exempt from the Base/Fixtures/Content rules — Validate won't complain
+  about a doll loose under `Base`, and Group Base leaves them where you put them.
+
 ## [0.4.0] — 2026-07-28
 
 ### Changed — BREAKING

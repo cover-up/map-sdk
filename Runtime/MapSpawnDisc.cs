@@ -1,26 +1,60 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace CoverUp.Gameplay
 {
+    /// <summary>Which players a <see cref="MapSpawnDisc"/> places.</summary>
+    public enum MapSpawnRole : byte
+    {
+        /// <summary>Everyone lands here. The default — and a single Both disc is still a
+        /// complete map, which is why existing maps need no edit.</summary>
+        Both = 0,
+        /// <summary>Hiders only.</summary>
+        Hiders = 1,
+        /// <summary>Hunters only.</summary>
+        Hunters = 2,
+    }
+
     /// <summary>
-    /// Hand-placeable map spawn area: a filled disc where everyone — hider
-    /// and hunter alike — lands at a random point facing a random direction
-    /// when warping up from the lobby. Lives only in map scenes (box_*);
-    /// lookups go through FindInScene so callers always say which scene's
-    /// disc they mean while the inhabited hub (which carries its own
-    /// SpawnRing) is still loaded. Radius is world metres, deliberately not
-    /// doll-scaled — the gizmo shows exactly where players land, and with
-    /// hiders and hunters sized independently there is no one scale to use.
+    /// Hand-placeable map spawn area: a filled disc where players land at a random point
+    /// facing a random direction when warping up from the lobby. Lives only in map
+    /// scenes; lookups go through the FindInScene helpers so callers always say which
+    /// scene's disc they mean while the inhabited hub (which carries its own SpawnRing)
+    /// is still loaded.
+    ///
+    /// <b>Per-role spawns:</b> a map can give hiders and hunters separate landing areas —
+    /// hiders deeper in the space, hunters held at an entrance — by placing one disc per
+    /// <see cref="MapSpawnRole"/>. A map with a single <see cref="MapSpawnRole.Both"/>
+    /// disc behaves exactly as before, so this is additive, not a migration.
+    ///
+    /// Several discs may share a role; a player lands in a randomly chosen one, so
+    /// scattering a few small discs is a legitimate way to spread a spawn out.
+    ///
+    /// Radius is world metres, deliberately not doll-scaled — the gizmo shows exactly
+    /// where players land, and with hiders and hunters sized independently there is no
+    /// one scale to use.
     /// </summary>
     public sealed class MapSpawnDisc : MonoBehaviour
     {
         [SerializeField] private float radius = 2.5f;
 
-        /// <summary>The disc belonging to one specific scene — the streamed-in
-        /// map for warp-up placement, the active scene for bounds-escape
-        /// restarts. A bare FindAnyObjectByType would grab whichever map
-        /// happens to be loaded, even one the player is not standing in.</summary>
+        [SerializeField]
+        [Tooltip("Who lands here. Both = everyone (the default, and all a map needs). Use " +
+                 "Hiders/Hunters to give the two sides separate landing areas — e.g. hunters at " +
+                 "an entrance while hiders start deeper in. Several discs may share a role; a " +
+                 "player lands in a random one of them. Every spawn must sit inside the SMALLEST " +
+                 "size's bounds, or players land out of bounds at that size.")]
+        private MapSpawnRole role = MapSpawnRole.Both;
+
+        /// <summary>Who this disc places.</summary>
+        public MapSpawnRole Role => role;
+
+        /// <summary>Any disc belonging to one specific scene — the streamed-in map for
+        /// warp-up placement, the active scene for bounds-escape restarts. A bare
+        /// FindAnyObjectByType would grab whichever map happens to be loaded, even one
+        /// the player is not standing in. Role-agnostic; use <see cref="FindForRole"/> to
+        /// place an actual player.</summary>
         public static MapSpawnDisc FindInScene(Scene scene)
         {
             foreach (MapSpawnDisc disc in FindObjectsByType<MapSpawnDisc>(FindObjectsSortMode.None))
@@ -28,6 +62,30 @@ namespace CoverUp.Gameplay
                 if (disc.gameObject.scene == scene) return disc;
             }
             return null;
+        }
+
+        /// <summary>
+        /// The disc to land a <paramref name="wanted"/> player in: one dedicated to that
+        /// role if the map placed any, else a shared <see cref="MapSpawnRole.Both"/> disc,
+        /// else null. Dedicated beats shared, so adding a Hunters disc to a map that
+        /// already has a Both disc redirects only the hunters and leaves hiders alone.
+        /// Picks at random when several qualify — placement is client-local (each client
+        /// places its own blob and replicates the result), so this needs no sync.
+        /// </summary>
+        public static MapSpawnDisc FindForRole(Scene scene, MapSpawnRole wanted)
+        {
+            List<MapSpawnDisc> exact = null, shared = null;
+            foreach (MapSpawnDisc disc in FindObjectsByType<MapSpawnDisc>(FindObjectsSortMode.None))
+            {
+                if (disc.gameObject.scene != scene) continue;
+                if (wanted != MapSpawnRole.Both && disc.role == wanted)
+                    (exact ??= new List<MapSpawnDisc>()).Add(disc);
+                else if (disc.role == MapSpawnRole.Both)
+                    (shared ??= new List<MapSpawnDisc>()).Add(disc);
+            }
+            List<MapSpawnDisc> pick = exact ?? shared;
+            if (pick == null || pick.Count == 0) return null;
+            return pick[Random.Range(0, pick.Count)];
         }
 
         // A random spawn pose inside the disc. Uniform over area (the sqrt),
@@ -45,10 +103,16 @@ namespace CoverUp.Gameplay
             facing = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
         }
 
-        // Scene-view aid while placing: the disc players will land in.
+        // Scene-view aid while placing: the disc players land in, coloured by role so a
+        // map's hider and hunter spawns are told apart at a glance.
         private void OnDrawGizmos()
         {
-            Gizmos.color = new Color(0.3f, 0.9f, 1f, 0.7f);
+            Gizmos.color = role switch
+            {
+                MapSpawnRole.Hiders => new Color(0.35f, 0.95f, 0.45f, 0.75f),  // green
+                MapSpawnRole.Hunters => new Color(1f, 0.55f, 0.20f, 0.75f),    // orange
+                _ => new Color(0.3f, 0.9f, 1f, 0.7f),                          // cyan — everyone
+            };
             const int segments = 48;
             Vector3 c = transform.position;
             Vector3 prev = c + new Vector3(radius, 0f, 0f);

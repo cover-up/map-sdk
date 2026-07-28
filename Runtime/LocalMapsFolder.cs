@@ -11,7 +11,12 @@ namespace CoverUp.Gameplay
     /// in-game UI:
     ///   1. a <c>localmaps.txt</c> next to the game/SDK executable (first non-comment
     ///      line = an absolute folder path), else
-    ///   2. <c>~/Documents/CoverUpMaps</c>.
+    ///   2. <c>MyDocuments/CoverUpMaps</c> — which is <c>Documents\CoverUpMaps</c> on
+    ///      Windows but <c>~/CoverUpMaps</c> on Linux, because Unity's Mono resolves
+    ///      <see cref="System.Environment.SpecialFolder.MyDocuments"/> to <c>$HOME</c>
+    ///      there (verified 2026-07-28) — it does NOT honour XDG_DOCUMENTS_DIR, so
+    ///      <c>~/Documents</c> existing changes nothing. Say the resolved path out loud
+    ///      in docs rather than "Documents": on Linux that word is simply wrong.
     ///
     /// Lives in the SDK package because it is the SDK↔game contract meeting point;
     /// the game's <see cref="LocalMapLibrary"/> scans it, the exporter writes into it.

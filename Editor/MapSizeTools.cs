@@ -88,6 +88,8 @@ namespace CoverUp.EditorTools
                 errors.Add($"Disallowed component in the map scene: {bad}. Maps may use only Map SDK "
                     + "components and standard Unity components (Docs/Steam.md §8).");
 
+            CheckReferenceDolls(scene, errors);
+
             // MapConfig is the single player-scale source; a gameplay map without
             // one runs at GameScale.Default (allowed, but usually a mistake).
             // Report the resulting doll height and flag near-guard-rail values.
@@ -122,7 +124,7 @@ namespace CoverUp.EditorTools
             CheckWorkshopMetadata(scene, warnings);
 
             MapSizeVariants variants = MapSizeVariants.FindInScene(scene);
-            MapSpawnDisc spawn = MapSpawnDisc.FindInScene(scene);
+            var spawns = FindAllInScene<MapSpawnDisc>(scene);
             var bounds = FindAllInScene<MapBoundsVolume>(scene);
 
             // Size roots, hoisted out of the sized-map branch below: the grouping
@@ -138,14 +140,14 @@ namespace CoverUp.EditorTools
                 }
             }
 
-            CheckBaseGrouping(scene, spawn, roots, errors, warnings);
+            CheckBaseGrouping(scene, spawns, roots, errors, warnings);
 
             if (variants == null)
             {
                 // One-size map: legal. With no size roots the bounds have nowhere
                 // else to be, so they're fixtures like the spawn — said as a
                 // warning, since a volume under Content still clamps correctly.
-                if (spawn == null) errors.Add("No MapSpawnDisc — players have nowhere to land.");
+                ReportSpawnCoverage(spawns, errors);
                 if (bounds.Count == 0)
                     warnings.Add("No MapBoundsVolume — players are not kept inside the map.");
                 Transform oneSizeFixtures = MapContract.FindChild(
@@ -176,12 +178,14 @@ namespace CoverUp.EditorTools
                                "bounds must live under Small/Medium/Large, never in Base.");
             }
 
-            // Spawn stays shared in Base so every size has it.
-            if (spawn == null)
-                errors.Add("No MapSpawnDisc — players have nowhere to land.");
-            else if (InsideAnyRoot(spawn.transform, roots))
-                errors.Add($"MapSpawnDisc '{Path(spawn.transform)}' is inside a size root — the spawn " +
+            // Spawns stay shared in Base so every size has them.
+            ReportSpawnCoverage(spawns, errors);
+            foreach (MapSpawnDisc sp in spawns)
+            {
+                if (!InsideAnyRoot(sp.transform, roots)) continue;
+                errors.Add($"MapSpawnDisc '{Path(sp.transform)}' is inside a size root — a spawn " +
                            $"belongs in {MapContract.Base}/{MapContract.Fixtures} so it exists at every size.");
+            }
 
             // A size root with no bounds of its own is almost always an authoring
             // slip (that size would fall back to whatever volumes happen to be
@@ -226,6 +230,37 @@ namespace CoverUp.EditorTools
         }
 
         /// <summary>
+        /// Scale reference dolls are authoring aids that must not ship, and the
+        /// mechanism that removes them is Unity's <c>EditorOnly</c> tag on the doll or
+        /// an ancestor. The component re-applies that tag itself, so an untagged doll
+        /// means something defeated it — a hand-edited scene file, a merge, a script
+        /// that rebuilt the object. Error rather than silently re-tag: the mapper needs
+        /// to know their scene had an object that would have shipped.
+        ///
+        /// Cheap belt-and-braces, not the only line of defence: a doll is pure gizmo,
+        /// so even one that survived the strip would be invisible in game.
+        /// </summary>
+        private static void CheckReferenceDolls(Scene scene, List<string> errors)
+        {
+            foreach (MapReferenceDoll doll in FindAllInScene<MapReferenceDoll>(scene))
+            {
+                if (IsEditorOnly(doll.transform)) continue;
+                errors.Add($"Reference doll '{Path(doll.transform)}' is not tagged " +
+                    $"'{MapReferenceDoll.EditorOnlyTag}' (nor is any parent) — the build would keep it. " +
+                    "Set the tag on the object or its group, or delete the doll.");
+            }
+        }
+
+        /// <summary>The EditorOnly tag strips the tagged object AND its children, so an
+        /// ancestor carrying it is enough.</summary>
+        private static bool IsEditorOnly(Transform t)
+        {
+            for (Transform p = t; p != null; p = p.parent)
+                if (p.CompareTag(MapReferenceDoll.EditorOnlyTag)) return true;
+            return false;
+        }
+
+        /// <summary>
         /// The Base grouping contract (SDK 0.4.0): a map scene is
         /// <c>_CoverUpMap → Base → {Fixtures, Content}</c>, with the size roots
         /// under <c>Sizes</c>. Enforced as ERRORS — the exporter refuses a scene
@@ -237,7 +272,7 @@ namespace CoverUp.EditorTools
         /// warning pointing at Group Base, not an error — those maps ship from the
         /// game's build, never through the exporter.
         /// </summary>
-        private static void CheckBaseGrouping(Scene scene, MapSpawnDisc spawn, List<Transform> sizeRoots,
+        private static void CheckBaseGrouping(Scene scene, List<MapSpawnDisc> spawns, List<Transform> sizeRoots,
                                               List<string> errors, List<string> warnings)
         {
             Transform root = MapContract.FindRoot(scene);
@@ -292,6 +327,9 @@ namespace CoverUp.EditorTools
             foreach (Transform child in MapContract.Children(baseT))
             {
                 if (child == fixtures || child == content) continue;
+                // Reference dolls are exempt everywhere: they're stripped at export, so
+                // filing them tidily would buy the shipped map nothing.
+                if (MapContract.IsAuthoringAid(child)) continue;
                 loose.Add(child.name);
             }
             if (loose.Count > 0)
@@ -303,12 +341,13 @@ namespace CoverUp.EditorTools
                     $"'{MapContract.Content}'. Run Cover Up!/Maps/Group Base.");
             }
 
-            // The spawn is the fixture that matters most: a map that loses it has
-            // nowhere to put players.
-            if (spawn != null && fixtures != null
-                && !spawn.transform.IsChildOf(fixtures) && !InsideAnyRoot(spawn.transform, sizeRoots))
+            // Spawns are the fixtures that matter most: a map that loses one has
+            // nowhere to put that side.
+            if (fixtures == null) return;
+            foreach (MapSpawnDisc sp in spawns)
             {
-                errors.Add($"MapSpawnDisc '{Path(spawn.transform)}' is outside " +
+                if (sp.transform.IsChildOf(fixtures) || InsideAnyRoot(sp.transform, sizeRoots)) continue;
+                errors.Add($"MapSpawnDisc '{Path(sp.transform)}' is outside " +
                     $"'{MapContract.Base}/{MapContract.Fixtures}' — that's where the contract keeps it.");
             }
 
@@ -384,6 +423,31 @@ namespace CoverUp.EditorTools
         // What the menu's map card wants: wide enough not to upscale, close enough to
         // 16:9 that the cover-crop keeps most of the shot.
         private const int RecommendedPreviewW = 1280, RecommendedPreviewH = 720, MinPreviewW = 640;
+
+        /// <summary>Both sides must have somewhere to land. A single Both disc covers
+        /// everyone; dedicated discs cover only their own role, so a map that adds a
+        /// Hunters disc and nothing else has silently left hiders homeless.</summary>
+        private static void ReportSpawnCoverage(List<MapSpawnDisc> spawns, List<string> errors)
+        {
+            if (spawns.Count == 0)
+            {
+                errors.Add("No MapSpawnDisc — players have nowhere to land.");
+                return;
+            }
+            bool hiders = false, hunters = false;
+            foreach (MapSpawnDisc sp in spawns)
+            {
+                if (sp.Role == MapSpawnRole.Both) { hiders = hunters = true; break; }
+                if (sp.Role == MapSpawnRole.Hiders) hiders = true;
+                else if (sp.Role == MapSpawnRole.Hunters) hunters = true;
+            }
+            if (!hiders)
+                errors.Add("No spawn for HIDERS — add a MapSpawnDisc with Role = Hiders, "
+                    + "or set an existing one to Both.");
+            if (!hunters)
+                errors.Add("No spawn for HUNTERS — add a MapSpawnDisc with Role = Hunters, "
+                    + "or set an existing one to Both.");
+        }
 
         private static readonly MapSize[] AllSizes = { MapSize.Small, MapSize.Medium, MapSize.Large };
 

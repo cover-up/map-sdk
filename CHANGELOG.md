@@ -5,6 +5,35 @@ All notable changes to the Cover Up! Map SDK. Format follows
 
 ## [Unreleased]
 
+## [0.5.2] — 2026-07-28
+
+### Added
+- **Per-size spawn discs.** A `MapSpawnDisc` inside a size root is live only at that size;
+  one in `Base/Fixtures` stays live at every size, as before. That is all a map needs to
+  give Large three hider spawns and Small one. No runtime change was required — size roots
+  are switched with `SetActive`, and spawn lookup already ignored inactive objects — so
+  this is a contract change: Validate Map used to *error* on a disc inside a size root.
+
+  **Size roots are exclusive, not additive:** `Large` does not inherit `Medium`'s discs;
+  each root holds the complete set for its size.
+
+### Changed
+- **Spawn validation is now per size, not per map.** Every built size must independently
+  have a disc for both roles, and every disc live at that size must sit inside *that
+  size's* bounds. Both are stricter than what they replace: the old whole-map coverage
+  check passed a map that covered hiders only at Large, and the "every disc must be inside
+  the smallest bounds" rule was documented but never actually enforced. Errors name the
+  size that breaks.
+
+### Fixed
+- **A spawn disc could place players a whole floor above itself.** The ground probe started
+  5 m above the disc and took the first hit going down, so on a map with floors less than
+  5 m apart it reached through the ceiling and snapped players onto the floor above — a
+  hider on the lower floor would materialise on the hunters' floor. The probe now starts
+  0.5 m up (still enough to rescue a disc left slightly sunk into its own floor) and
+  reaches the same distance down. Harmless on single-floor maps, which is why it survived
+  until stacked per-role spawns existed.
+
 ## [0.5.1] — 2026-07-28
 
 ### Removed

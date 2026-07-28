@@ -88,6 +88,17 @@ namespace CoverUp.Gameplay
             return pick[Random.Range(0, pick.Count)];
         }
 
+        // How far ABOVE the disc the ground probe starts. Deliberately far smaller
+        // than a storey: the probe casts down and takes the first hit, so any start
+        // height that clears a ceiling lets a disc on a lower floor snap onto the
+        // floor ABOVE it — landing that role in the wrong room entirely. This only
+        // needs to cover a disc left sitting slightly sunk into its own floor.
+        private const float GroundProbeUp = 0.5f;
+
+        // How far DOWN the probe reaches. Generous, so a disc left floating well
+        // above its floor still lands people on it.
+        private const float GroundProbeDown = 25f;
+
         // A random spawn pose inside the disc. Uniform over area (the sqrt),
         // so density doesn't bunch toward the centre. Random needs no sync —
         // each client places only its own blob and replicates the result.
@@ -98,8 +109,11 @@ namespace CoverUp.Gameplay
             float r = radius * Mathf.Sqrt(Random.value);
             Vector3 c = transform.position;
             position = new Vector3(c.x + Mathf.Cos(angle) * r, c.y, c.z + Mathf.Sin(angle) * r);
-            if (Physics.Raycast(position + Vector3.up * 5f, Vector3.down, out RaycastHit hit, 25f))
+            if (Physics.Raycast(position + Vector3.up * GroundProbeUp, Vector3.down,
+                    out RaycastHit hit, GroundProbeUp + GroundProbeDown))
+            {
                 position.y = hit.point.y + 0.05f;
+            }
             facing = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
         }
 

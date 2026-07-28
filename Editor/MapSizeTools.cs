@@ -170,14 +170,11 @@ namespace CoverUp.EditorTools
                                "bounds must live under Small/Medium/Large, never in Base.");
             }
 
-            // Spawns stay shared in Base so every size has them.
-            ReportSpawnCoverage(spawns, errors);
-            foreach (MapSpawnDisc sp in spawns)
-            {
-                if (!InsideAnyRoot(sp.transform, roots)) continue;
-                errors.Add($"MapSpawnDisc '{Path(sp.transform)}' is inside a size root — a spawn " +
-                           $"belongs in {MapContract.Base}/{MapContract.Fixtures} so it exists at every size.");
-            }
+            // Spawns may be shared (in Base/Fixtures, live at every size) or scoped to
+            // one size root (live only at that size) — the latter is how a map gives
+            // Large more landing spots than Small. Both coverage and containment are
+            // therefore judged PER SIZE, against the set of discs actually active there.
+            ReportSpawnCoveragePerSize(spawns, variants, roots, bounds, errors);
 
             // A size root with no bounds of its own is almost always an authoring
             // slip (that size would fall back to whatever volumes happen to be
@@ -439,6 +436,98 @@ namespace CoverUp.EditorTools
             if (!hunters)
                 errors.Add("No spawn for HUNTERS — add a MapSpawnDisc with Role = Hunters, "
                     + "or set an existing one to Both.");
+        }
+
+        /// <summary>
+        /// The discs that are actually live at one size: every disc scoped to that
+        /// size's root, plus every shared disc (one that sits in no size root at all,
+        /// i.e. Base/Fixtures). Size roots are mutually exclusive — Large does NOT
+        /// inherit Medium's discs — so this is the complete set the game can pick from
+        /// at that size, and exactly what FindForRole sees once the inactive roots are
+        /// switched off.
+        /// </summary>
+        private static List<MapSpawnDisc> LiveAtSize(
+            List<MapSpawnDisc> spawns, List<Transform> roots, Transform own)
+        {
+            var live = new List<MapSpawnDisc>();
+            foreach (MapSpawnDisc sp in spawns)
+            {
+                bool scopedToThisSize = own != null && sp.transform.IsChildOf(own);
+                if (scopedToThisSize || !InsideAnyRoot(sp.transform, roots)) live.Add(sp);
+            }
+            return live;
+        }
+
+        /// <summary>True when the point is inside any of these volumes. A volume is a
+        /// unit cube in its own local space, so containment is a ±0.5 test after
+        /// InverseTransformPoint — the same maths MapBoundsVolume.TryClamp uses.</summary>
+        private static bool InsideBounds(Vector3 p, List<MapBoundsVolume> volumes)
+        {
+            foreach (MapBoundsVolume v in volumes)
+            {
+                Vector3 local = v.transform.InverseTransformPoint(p);
+                if (Mathf.Abs(local.x) <= 0.5f && Mathf.Abs(local.y) <= 0.5f && Mathf.Abs(local.z) <= 0.5f)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Per-size spawn validation for a sized map. Every BUILT size must be playable
+        /// on its own: both roles need somewhere to land there, and every disc live at
+        /// that size must sit inside that size's bounds.
+        ///
+        /// Judging per size rather than per map is what makes scoped spawns safe. The
+        /// old whole-map check passed a map that covered hiders only at Large, and it
+        /// also let a shared Fixtures disc sit outside the Small bounds unnoticed —
+        /// both are now errors, named with the size that breaks.
+        /// </summary>
+        private static void ReportSpawnCoveragePerSize(
+            List<MapSpawnDisc> spawns, MapSizeVariants variants, List<Transform> roots,
+            List<MapBoundsVolume> bounds, List<string> errors)
+        {
+            if (spawns.Count == 0)
+            {
+                errors.Add("No MapSpawnDisc — players have nowhere to land.");
+                return;
+            }
+            foreach (MapSize size in AllSizes)
+            {
+                GameObject r = variants.Root(size);
+                if (r == null) continue;   // size not built; nothing to be playable
+                Transform own = r.transform;
+                List<MapSpawnDisc> live = LiveAtSize(spawns, roots, own);
+
+                bool hiders = false, hunters = false;
+                foreach (MapSpawnDisc sp in live)
+                {
+                    if (sp.Role == MapSpawnRole.Both) { hiders = hunters = true; break; }
+                    if (sp.Role == MapSpawnRole.Hiders) hiders = true;
+                    else if (sp.Role == MapSpawnRole.Hunters) hunters = true;
+                }
+                if (!hiders)
+                    errors.Add($"Size '{size}' has no spawn for HIDERS — put a disc with Role = Hiders "
+                        + $"under '{size}', or a shared one in {MapContract.Base}/{MapContract.Fixtures}.");
+                if (!hunters)
+                    errors.Add($"Size '{size}' has no spawn for HUNTERS — put a disc with Role = Hunters "
+                        + $"under '{size}', or a shared one in {MapContract.Base}/{MapContract.Fixtures}.");
+
+                // Containment, against THIS size's volumes only. A shared disc is live
+                // at every size, so it gets tested against each — which is the old
+                // "must be inside the smallest bounds" rule, generalised and now
+                // actually enforced.
+                var sizeVolumes = new List<MapBoundsVolume>();
+                foreach (MapBoundsVolume b in bounds)
+                    if (b.transform.IsChildOf(own)) sizeVolumes.Add(b);
+                if (sizeVolumes.Count == 0) continue;   // already warned about elsewhere
+
+                foreach (MapSpawnDisc sp in live)
+                {
+                    if (InsideBounds(sp.transform.position, sizeVolumes)) continue;
+                    errors.Add($"MapSpawnDisc '{Path(sp.transform)}' is outside the bounds of size "
+                        + $"'{size}' — players landing there at that size are immediately pulled back in.");
+                }
+            }
         }
 
         private static readonly MapSize[] AllSizes = { MapSize.Small, MapSize.Medium, MapSize.Large };

@@ -144,10 +144,32 @@ in the scene view so you can read a map's opening at a glance (a `Both` disc sta
 - **Several discs can share a role.** A player lands in a randomly chosen one, so scattering
   three small `Hiders` discs around a floor is a legitimate way to spread a spawn out
   instead of stacking everyone on one point.
-- **Every disc must sit inside the *smallest* size's bounds.** A spawn that is only inside
-  the Large bounds lands that side out of bounds when the map resolves to Small.
 - **Validate Map errors if either side has nowhere to land** — so a map with a lone
   `Hunters` disc and no hider spawn is caught before you export it, not in a live round.
+
+#### Different spawns per size
+
+A disc's **position in the hierarchy** decides which sizes it exists at:
+
+| where you put it | live at |
+|---|---|
+| `Base/Fixtures` | every size — the shared default |
+| `Sizes/Small` (or Medium/Large) | that size only |
+
+So a map that wants one hider spawn at Small, two at Medium and three at Large puts one
+disc under `Sizes/Small`, two under `Sizes/Medium`, three under `Sizes/Large`, and leaves
+the hunter disc in `Base/Fixtures` where it serves all three. Nothing special switches this
+on: only one size root is active at a time, and spawn lookup ignores inactive objects.
+
+**Size roots are exclusive, not additive** — `Large` does *not* inherit `Medium`'s discs.
+Each size root holds the complete set for that size. That's more discs in the scene, but
+you can read a size's spawn count straight off the hierarchy instead of adding two numbers.
+
+Validate Map checks **each built size on its own**: both roles must have a live disc there,
+and every disc live at that size must sit inside *that size's* bounds. A shared disc in
+`Fixtures` is live everywhere, so it is checked against every size — which is the old
+"must be inside the smallest bounds" rule, now actually enforced and reported with the
+name of the size that breaks.
 
 ### The hunter's camera
 
@@ -210,7 +232,7 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.5.1"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.5.2"`.
    (By default both the game and the SDK use `~/CoverUpMaps` (Linux/macOS) or
    `Documents\CoverUpMaps` (Windows) — no path setup needed. To relocate, see
    *Changing the folder* above.)

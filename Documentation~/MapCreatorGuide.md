@@ -127,7 +127,7 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.2.0"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.3.0"`.
    (By default both the game and the SDK use `~/Documents/CoverUpMaps` — no path
    setup needed. To relocate, see *Changing the folder* above.)
 3. Build your map from the `_CoverUpMap` template. **Cover Up! → Maps → Create

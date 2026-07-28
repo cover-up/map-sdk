@@ -10,8 +10,8 @@ namespace CoverUp.Gameplay
     /// lookups go through FindInScene so callers always say which scene's
     /// disc they mean while the inhabited hub (which carries its own
     /// SpawnRing) is still loaded. Radius is world metres, deliberately not
-    /// scaled by GameScale.Player — the gizmo shows exactly where players
-    /// land.
+    /// doll-scaled — the gizmo shows exactly where players land, and with
+    /// hiders and hunters sized independently there is no one scale to use.
     /// </summary>
     public sealed class MapSpawnDisc : MonoBehaviour
     {

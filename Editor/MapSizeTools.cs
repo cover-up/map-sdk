@@ -106,6 +106,8 @@ namespace CoverUp.EditorTools
                 ? $", dolls ≈ {GameScale.ApproxHeightMeters(config.PlayerScale):0.00} m"
                 : ", default scale";
 
+            CheckWorkshopMetadata(scene, warnings);
+
             MapSizeVariants variants = MapSizeVariants.FindInScene(scene);
             MapSpawnDisc spawn = MapSpawnDisc.FindInScene(scene);
             var bounds = FindAllInScene<MapBoundsVolume>(scene);
@@ -163,7 +165,55 @@ namespace CoverUp.EditorTools
             return (errors, warnings, $"sized map (built: {built}){scaleNote}");
         }
 
+        /// <summary>
+        /// Publish-readiness checks on the optional <see cref="WorkshopMapInfo"/>.
+        /// Warnings, never errors — a map with no metadata is perfectly valid to export
+        /// and sandbox-test, it just can't be published and doesn't present itself.
+        ///
+        /// The preview matters more than it used to: the main menu's map pane draws it
+        /// full-bleed as the whole card (Docs/Steam.md §8.4), so a missing or tiny
+        /// preview is what a player sees of the map before deciding to download it.
+        /// </summary>
+        private static void CheckWorkshopMetadata(Scene scene, List<string> warnings)
+        {
+            WorkshopMapInfo info = FindInScene<WorkshopMapInfo>(scene);
+            if (info == null)
+            {
+                warnings.Add("No WorkshopMapInfo — the map exports with the scene name and no title, "
+                    + "description, tags or preview, and can't be published. Add one to the _CoverUpMap root.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(info.Title))
+                warnings.Add("WorkshopMapInfo has no Title — the browser falls back to the map id.");
+
+            Texture2D preview = info.Preview;
+            if (preview == null)
+            {
+                warnings.Add("WorkshopMapInfo has no Preview image — publishing is blocked without one, "
+                    + "and the map's card in the menu renders blank. Assign a screenshot "
+                    + $"(≈{RecommendedPreviewW}x{RecommendedPreviewH}, 16:9, under 1 MB as PNG).");
+                return;
+            }
+
+            // Drawn full-bleed at roughly a third of the screen, so anything small is
+            // visibly upscaled.
+            if (preview.width < MinPreviewW)
+                warnings.Add($"Preview '{preview.name}' is only {preview.width}x{preview.height} — it's drawn "
+                    + $"full-width on the map card and will look soft. Aim for ≈{RecommendedPreviewW} wide.");
+
+            // Centre-cropped to cover the card, so a far-off aspect loses a lot of image.
+            float aspect = preview.height > 0 ? (float)preview.width / preview.height : 0f;
+            if (aspect > 0f && (aspect < 1.2f || aspect > 2.4f))
+                warnings.Add($"Preview '{preview.name}' is {aspect:0.##}:1 — the map card centre-crops to fill, "
+                    + "so a squarer or very wide image loses a lot of its height. 16:9 crops best.");
+        }
+
         // --------------------------------------------------------------- utils
+
+        // What the menu's map card wants: wide enough not to upscale, close enough to
+        // 16:9 that the cover-crop keeps most of the shot.
+        private const int RecommendedPreviewW = 1280, RecommendedPreviewH = 720, MinPreviewW = 640;
 
         private static readonly MapSize[] AllSizes = { MapSize.Small, MapSize.Medium, MapSize.Large };
 

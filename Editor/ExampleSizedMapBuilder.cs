@@ -37,9 +37,21 @@ namespace CoverUp.EditorTools
     /// </summary>
     public static class ExampleSizedMapBuilder
     {
-        private const string SceneFolder = "Assets/CoverUp/Content/Scenes";
-        private const string MaterialFolder = "Assets/CoverUp/Content/Materials";
+        // Where the example lands. The GAME keeps its copy under Assets/CoverUp/Content,
+        // but a mapper's project has no such folder and has no business growing one — the
+        // SDK shipping the game's internal layout into every third-party project is a leak,
+        // not a convention. So: use the game's folders when they already exist (the game
+        // repo behaves exactly as before, and its existing example is still found), and a
+        // neutral Assets/Maps everywhere else.
+        private const string GameSceneFolder = "Assets/CoverUp/Content/Scenes";
+        private const string GameMaterialFolder = "Assets/CoverUp/Content/Materials";
+        private const string MapSceneFolder = "Assets/Maps/Scenes";
+        private const string MapMaterialFolder = "Assets/Maps/Materials";
         private const string SceneName = "example_sized_map";
+
+        private static bool InGameProject => System.IO.Directory.Exists(GameSceneFolder);
+        private static string SceneFolder => InGameProject ? GameSceneFolder : MapSceneFolder;
+        private static string MaterialFolder => InGameProject ? GameMaterialFolder : MapMaterialFolder;
 
         // Corridor geometry (metres). Three RoomLen×RoomWide rooms along +X.
         private const float RoomLen = 16f;   // each room's length along X

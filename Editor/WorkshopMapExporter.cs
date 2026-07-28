@@ -17,8 +17,11 @@ namespace CoverUp.EditorTools
     /// P1 of Steam S6 (Docs/Steam.md §8.2): package the open _CoverUpMap scene as
     /// a Workshop map. Runs the Validate Map contract check, builds a
     /// self-contained AssetBundle per shipping platform (Windows + Linux), hashes
-    /// each, writes map.json + preview.png, and zips the folder. Output lands in
-    /// <project>/Workshop/&lt;mapId&gt;/ (+ .zip alongside).
+    /// each, writes map.json + preview.png, and zips the folder. Output lands in the
+    /// Local maps folder — <see cref="LocalMapsFolder"/>, i.e. <c>~/CoverUpMaps/&lt;mapId&gt;/</c>
+    /// (+ .zip alongside), or wherever a <c>localmaps.txt</c> override points. NOT
+    /// <c>&lt;project&gt;/Workshop/</c>: that was the pre-LocalMapsFolder output path and is
+    /// dead — the game never reads it.
     ///
     /// AssetBundles are platform-specific, so the editor's OWN platform bundle is
     /// required (that's the one you can sideload-test); the other platform is

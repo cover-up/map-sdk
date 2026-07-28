@@ -26,10 +26,11 @@ namespace CoverUp.EditorTools
     ///   ├── Base
     ///   │   ├── Fixtures        spawn disc + the arena sun — the map breaks without these
     ///   │   └── Content         floor, outer + divider walls (your geometry goes here)
-    ///   └── Sizes
-    ///       ├── Small           Bounds(room 1)      + Door 1↔2
-    ///       ├── Medium          Bounds(rooms 1–2)   + Door 2↔3
-    ///       └── Large           Bounds(rooms 1–3)
+    ///   ├── Sizes
+    ///   │   ├── Small           Bounds(room 1)      + Door 1↔2
+    ///   │   ├── Medium          Bounds(rooms 1–2)   + Door 2↔3
+    ///   │   └── Large           Bounds(rooms 1–3)
+    ///   └── Reference           hider + hunter scale dolls (EditorOnly — never exported)
     ///
     /// CREATE-ONCE, like ColorBoxMapBuilder: an existing scene on disk is never
     /// regenerated, so edits are safe. Delete the .unity to reseed. The example
@@ -146,11 +147,39 @@ namespace CoverUp.EditorTools
             DividerWithGap(content, "Divider_1", d12, wallMat);
             DividerWithGap(content, "Divider_2", d23, wallMat);
 
-            // Spawn sits in room 1 — Small always contains it, so it stays in Base
-            // (under Fixtures: losing it is one of the ways a map stops loading).
-            var spawn = Child(fixtures, "MapSpawnDisc");
-            spawn.localPosition = new Vector3(x1, 0f, 0f);
-            spawn.gameObject.AddComponent<MapSpawnDisc>();
+            // Spawns sit in room 1 — Small always contains it, so they stay in Base
+            // (under Fixtures: losing one is how a map stops being able to place a side).
+            // Two discs rather than one shared disc, so the per-role feature is visible
+            // the moment a mapper opens the example: hunters land at the room's near end,
+            // hiders at the far end, giving the hiders a moment before the sweep starts.
+            // Both are inside room 1 deliberately — a spawn placed where a SMALLER size
+            // walls it off would land that side out of bounds.
+            // One X each, shared with the reference dolls below so a doll can never
+            // drift away from the disc it is standing in for.
+            float hiderSpawnX = x1 - RoomLen * 0.25f;
+            float hunterSpawnX = x1 + RoomLen * 0.25f;
+
+            var hiderSpawn = Child(fixtures, "HiderSpawn");
+            hiderSpawn.localPosition = new Vector3(hiderSpawnX, 0f, 0f);
+            SetSpawnRole(hiderSpawn.gameObject.AddComponent<MapSpawnDisc>(), MapSpawnRole.Hiders);
+
+            var hunterSpawn = Child(fixtures, "HunterSpawn");
+            hunterSpawn.localPosition = new Vector3(hunterSpawnX, 0f, 0f);
+            SetSpawnRole(hunterSpawn.gameObject.AddComponent<MapSpawnDisc>(), MapSpawnRole.Hunters);
+
+            // ---- Reference: scale dolls, stripped at export -----------------------
+            // A pair by the spawn so the first thing a new mapper sees is how big a
+            // player actually is in their rooms. Tagged EditorOnly (the whole group, so
+            // anything they add here inherits it) — the build drops the subtree, and
+            // they're gizmo-only besides. Delete or move them freely.
+            var reference = Child(root.transform, MapContract.Reference);
+            reference.gameObject.tag = MapReferenceDoll.EditorOnlyTag;
+            // Each doll stands IN the disc its own side lands in, so the first thing a
+            // mapper sees is how big that role is where that role actually arrives. The
+            // 1.2 m offset keeps the silhouette off the disc's centre without leaving it
+            // (disc radius is 2.5 m).
+            Doll(reference, MapDollRole.Hider, new Vector3(hiderSpawnX, 0f, 1.2f));
+            Doll(reference, MapDollRole.Hunter, new Vector3(hunterSpawnX, 0f, 1.2f));
 
             // ---- Sizes: each only ADDS bounds + door plugs ------------------------
             var sizesRoot = Child(root.transform, MapContract.Sizes);
@@ -226,6 +255,19 @@ namespace CoverUp.EditorTools
             return go.transform;
         }
 
+        // A scale reference doll. Tagged EditorOnly individually as well as via its
+        // group, so it survives being dragged elsewhere in the hierarchy.
+        private static void Doll(Transform parent, MapDollRole role, Vector3 at)
+        {
+            Transform t = Child(parent, $"Reference_{role}");
+            t.localPosition = at;
+            t.gameObject.tag = MapReferenceDoll.EditorOnlyTag;
+            MapReferenceDoll doll = t.gameObject.AddComponent<MapReferenceDoll>();
+            var so = new SerializedObject(doll);
+            so.FindProperty("role").enumValueIndex = (int)role;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         private static void Surface(Transform parent, string name, Vector3 center, Vector3 size, Material mat, bool giStatic)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -240,6 +282,13 @@ namespace CoverUp.EditorTools
                 GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.ContributeGI
                     | StaticEditorFlags.OccluderStatic | StaticEditorFlags.OccludeeStatic | StaticEditorFlags.BatchingStatic);
             }
+        }
+
+        private static void SetSpawnRole(MapSpawnDisc disc, MapSpawnRole role)
+        {
+            var so = new SerializedObject(disc);
+            so.FindProperty("role").enumValueIndex = (int)role;
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static void SetFloat(Component c, string prop, float value)

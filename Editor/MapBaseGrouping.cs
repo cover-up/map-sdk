@@ -22,6 +22,23 @@ namespace CoverUp.EditorTools
         public const string Content = "Content";
         public const string Sizes = "Sizes";
 
+        /// <summary>Authoring aids that never ship: the scale reference dolls
+        /// (<see cref="MapReferenceDoll"/>), tagged EditorOnly so the build strips the
+        /// whole subtree. A sibling of Base rather than a group inside it, because
+        /// everything under Base is map content that DOES ship.</summary>
+        public const string Reference = "Reference";
+
+        /// <summary>True if this object is an editor-only authoring aid — a reference
+        /// doll, or the group they live in. The contract rules skip these: they're
+        /// stripped at export, so where they sit in the hierarchy cannot affect the
+        /// shipped map, and forcing a mapper to file them tidily would be theatre.</summary>
+        public static bool IsAuthoringAid(Transform t)
+        {
+            if (t == null) return false;
+            if (t.name == Reference) return true;
+            return t.GetComponentInChildren<MapReferenceDoll>(true) != null;
+        }
+
         /// <summary>The scene's contract root, or null for a scene that predates
         /// the shape (the game's own box_* maps are flat, for instance).</summary>
         public static Transform FindRoot(Scene scene)
@@ -206,6 +223,9 @@ namespace CoverUp.EditorTools
                 if (child == baseT) continue;
                 if (child.name == MapContract.Sizes) continue;
                 if (sizeRoots.Contains(child)) continue;
+                // Reference dolls stay put: sweeping them into Base would file an
+                // editor-only aid among the objects that ship.
+                if (MapContract.IsAuthoringAid(child)) continue;
                 Undo.SetTransformParent(child, baseT, true, "Group Base");
                 intoBase++;
             }

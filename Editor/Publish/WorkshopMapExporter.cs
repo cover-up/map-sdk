@@ -71,8 +71,29 @@ namespace CoverUp.EditorTools
             }
 
             // 2. Metadata (optional WorkshopMapInfo on the _CoverUpMap root).
+            //
+            // SNAPSHOT it to plain values RIGHT HERE. Building the AssetBundles below
+            // unloads and restores the scene (Unity's Temp/__Backupscenes dance), which
+            // DESTROYS every scene-object reference — a `WorkshopMapInfo` held across
+            // step 4 comes back fake-null, so reading `info.Title` afterwards silently
+            // yields the empty fallback. That is exactly how every package exported
+            // before 2026-07-28 shipped with an empty title/description/tags/preview
+            // while the component sat correctly filled in the scene. The preview is an
+            // ASSET, not a scene object, so its reference survives — but it's snapshot
+            // here too, so the whole manifest comes from one consistent read.
             WorkshopMapInfo info = FindInScene<WorkshopMapInfo>(scene);
             string mapId = SanitizeId(info != null && !string.IsNullOrWhiteSpace(info.MapId) ? info.MapId : scene.name);
+            string metaTitle = info != null && !string.IsNullOrWhiteSpace(info.Title) ? info.Title : mapId;
+            string metaDescription = info != null ? info.Description : "";
+            string[] metaTags = info != null ? info.Tags : Array.Empty<string>();
+            Texture2D metaPreview = info != null ? info.Preview : null;
+
+            // The contract is read from scene components too (MapConfig, MapSizeVariants,
+            // MapSpawnDisc), so it has to be snapshot HERE for the same reason — read
+            // after the build, FindInScene comes back empty and the manifest silently
+            // reports GameScale.Default for both roles. That shipped: a map authored
+            // 0.2 / 0.7 published a contract claiming 1.185 / 1.185.
+            WorkshopContract contract = ReadContract(scene);
 
             // 3. BuildAssetBundles reads assets from disk — persist the scene
             //    (skipped on the save-triggered path, which already saved it).
@@ -134,21 +155,23 @@ namespace CoverUp.EditorTools
             }
             finally { TryDeleteDir(tempRoot); }
 
-            // 5. Preview (best-effort) + contract (advisory) + manifest.
-            string previewName = WritePreview(info, outDir);
+            // 5. Preview (best-effort) + contract (advisory) + manifest. Everything
+            //    authored comes from the step-2 snapshots — `info` and every scene
+            //    object are destroyed references by now (see the note there).
+            string previewName = WritePreview(metaPreview, outDir);
             var manifest = new WorkshopMapManifest
             {
                 format = WorkshopMapManifest.CurrentFormat,
                 mapId = mapId,
-                title = info != null && !string.IsNullOrWhiteSpace(info.Title) ? info.Title : mapId,
+                title = metaTitle,
                 author = "",
                 authorSteamId = "",
-                description = info != null ? info.Description : "",
-                tags = info != null ? info.Tags : Array.Empty<string>(),
+                description = metaDescription,
+                tags = metaTags,
                 scene = scene.name,
                 bundles = bundles,
                 preview = previewName,
-                contract = ReadContract(scene),
+                contract = contract,
                 builtWith = new WorkshopBuiltWith
                 {
                     game = Application.version,
@@ -253,9 +276,14 @@ namespace CoverUp.EditorTools
             return c;
         }
 
-        private static string WritePreview(WorkshopMapInfo info, string outDir)
+        // Steam rejects a Workshop preview image over 1 MB, and the in-game card never
+        // draws one wider than a few hundred pixels, so the export caps both rather than
+        // letting a publish fail late with an opaque InvalidParam.
+        private const int MaxPreviewBytes = 1000 * 1000;
+        private const int MaxPreviewWidth = 1280;
+
+        private static string WritePreview(Texture2D tex, string outDir)
         {
-            Texture2D tex = info != null ? info.Preview : null;
             if (tex == null)
             {
                 Debug.LogWarning("[CoverUp] No preview assigned (WorkshopMapInfo.Preview) — package has no preview.png.");
@@ -263,13 +291,95 @@ namespace CoverUp.EditorTools
             }
             try
             {
-                Texture2D readable = MakeReadable(tex);
-                byte[] png = readable.EncodeToPNG();
-                UnityEngine.Object.DestroyImmediate(readable);
+                byte[] png = EncodePreview(tex);
+                if (png == null || png.Length == 0)
+                {
+                    Debug.LogWarning("[CoverUp] Preview could not be encoded — package has no preview.png.");
+                    return "";
+                }
+                if (png.Length > MaxPreviewBytes)
+                    Debug.LogWarning($"[CoverUp] preview.png is {png.Length / 1024} KB — over Steam's 1 MB "
+                        + "Workshop preview limit even after shrinking. Publishing may reject it; "
+                        + "assign a smaller preview image.");
                 File.WriteAllBytes(Path.Combine(outDir, "preview.png"), png);
                 return "preview.png";
             }
             catch (Exception e) { Debug.LogWarning("[CoverUp] Preview export failed: " + e.Message); return ""; }
+        }
+
+        // Prefer the source PNG's own bytes: highest fidelity, and — crucially — no GPU.
+        // The RenderTexture path below produces a flat grey image under -nographics
+        // (batch-mode exports), which looks like a working preview and isn't one.
+        private static byte[] EncodePreview(Texture2D tex)
+        {
+            string src = AssetDatabase.GetAssetPath(tex);
+            if (!string.IsNullOrEmpty(src) && src.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                && File.Exists(src))
+            {
+                byte[] raw = File.ReadAllBytes(src);
+                if (raw.Length <= MaxPreviewBytes && tex.width <= MaxPreviewWidth) return raw;
+
+                // Over a cap — decode it on the CPU (no GPU) and shrink.
+                var decoded = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                bool ok = decoded.LoadImage(raw);
+                byte[] shrunk = ok ? Shrink(decoded) : null;
+                UnityEngine.Object.DestroyImmediate(decoded);
+                if (shrunk != null) return shrunk;
+            }
+
+            // Non-PNG source (or a decode failure): the blit is the only way to read it.
+            Texture2D readable = MakeReadable(tex);
+            byte[] png = Shrink(readable);
+            UnityEngine.Object.DestroyImmediate(readable);
+            return png;
+        }
+
+        // Halve (box filter, CPU) until the image is within both caps. Returns the
+        // encoded PNG — the original size when it already fits.
+        private static byte[] Shrink(Texture2D readable)
+        {
+            Texture2D current = readable;
+            byte[] png = current.EncodeToPNG();
+            // 4 halvings takes any sane authoring resolution well under the caps; the
+            // bound also stops a pathological image from looping down to one pixel.
+            for (int i = 0; i < 4; i++)
+            {
+                if (png != null && png.Length <= MaxPreviewBytes && current.width <= MaxPreviewWidth) break;
+                if (current.width < 4 || current.height < 4) break;
+                Texture2D half = Halve(current);
+                if (current != readable) UnityEngine.Object.DestroyImmediate(current);
+                current = half;
+                png = current.EncodeToPNG();
+            }
+            if (current != readable) UnityEngine.Object.DestroyImmediate(current);
+            return png;
+        }
+
+        // 2:1 box filter on the CPU. An integer reduction, so averaging four pixels is
+        // both the correct filter and cheaper than any GPU round trip.
+        private static Texture2D Halve(Texture2D src)
+        {
+            int w = src.width / 2, h = src.height / 2;
+            Color32[] from = src.GetPixels32();
+            var to = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+            {
+                int r0 = (y * 2) * src.width, r1 = (y * 2 + 1) * src.width;
+                for (int x = 0; x < w; x++)
+                {
+                    int c0 = x * 2, c1 = c0 + 1;
+                    Color32 a = from[r0 + c0], b = from[r0 + c1], c = from[r1 + c0], d = from[r1 + c1];
+                    to[y * w + x] = new Color32(
+                        (byte)((a.r + b.r + c.r + d.r) >> 2),
+                        (byte)((a.g + b.g + c.g + d.g) >> 2),
+                        (byte)((a.b + b.b + c.b + d.b) >> 2),
+                        (byte)((a.a + b.a + c.a + d.a) >> 2));
+                }
+            }
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            tex.SetPixels32(to);
+            tex.Apply();
+            return tex;
         }
 
         // Copy any texture (regardless of Read/Write import setting) into a

@@ -5,6 +5,22 @@ All notable changes to the Cover Up! Map SDK. Format follows
 
 ## [Unreleased]
 
+## [0.5.5] — 2026-07-29
+
+### Added
+- **`PassThroughSurface`** — mark geometry that is solid to feet but transparent to shots
+  and to the third-person camera boom. Built for maps that stack their roles vertically:
+  diorama stands the seekers on a glass floor above the hiders, which only works if they
+  can shoot down through the pane they are standing on, and if a hider looking up doesn't
+  get the boom slammed in by glass they can see straight through.
+
+  A component rather than a layer on purpose — an AssetBundle serializes the layer INDEX,
+  and a map project's layer 12 need not be the game's layer 12, whereas a component
+  rebinds by class name. `MapSceneGuard` trusts the whole SDK assembly, so it needs no
+  allowlist change to be legal in a downloaded map. Movement and exposure scoring are
+  unaffected (exposure is measured by rendering hider proxies, not by raycast, so a
+  transparent floor already occludes exactly as much as it visibly occludes).
+
 ## [0.5.4] — 2026-07-28
 
 ### Fixed

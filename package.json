@@ -1,6 +1,6 @@
 {
   "name": "com.coverup.mapsdk",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "displayName": "Cover Up! Map SDK",
   "description": "Authoring SDK for Cover Up! Workshop maps: the _CoverUpMap components (MapConfig, MapSizeVariants, MapBoundsVolume, CamouflageSurface, MapSpawnDisc, WorkshopMapInfo) plus the map-size + player-scale contract, and the full editor tooling — Validate Map, Export Workshop Map, auto-export, gizmos, and the Create Example Sized Map starter. Both the shipping game and third-party map projects depend on this package, so a map bundle's component scripts bind to the game's classes by identical GUIDs. Add it to a bare URP project to author maps.",
   "unity": "6000.5",

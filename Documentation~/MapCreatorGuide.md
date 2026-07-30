@@ -206,6 +206,29 @@ export strips it. Validate Map errors if that tag ever goes missing. Place them 
 as you like: they're exempt from the `Base`/`Fixtures`/`Content` rules, and Group Base
 leaves them alone.
 
+### Mirrors
+
+Any flat surface can be a real, live mirror: add a **`MapMirror`** component to a Quad (or
+any flat mesh whose pivot sits on the glass). The reflective side is the face you see on a
+Quad. Keep a normal opaque material on the mesh — polished metal reads well — because that
+is the **fallback face**, and players will see it often:
+
+- Only **one** mirror is live at a time — the nearest one within its **Activation
+  Distance** (5–40 m, yours to tune) that the player is actually in front of. A live
+  mirror re-renders the whole scene, so this cap is what keeps mirrors affordable; every
+  other mirror shows its fallback material.
+- Players can turn mirrors off in graphics settings, and older game versions don't know
+  the component at all. In both cases your fallback face is the mirror, so make it look
+  deliberate.
+- The reflection skips shadows and runs at half resolution — fine on a wall, don't build
+  a puzzle that depends on reading fine detail in it.
+
+One gameplay note worth designing around: hunters can genuinely spot hiders in a mirror,
+but the exposure system doesn't score reflections — a hider visible only in the glass
+builds no exposure. A mirror is a tool for attentive hunters, not a scoring surface.
+
+**Validate Map** asks whether you meant it if a scene has more than 4.
+
 ### Your preview image
 
 The preview isn't a thumbnail any more — the game's map browser draws it **full-width as
@@ -232,7 +255,7 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.5.5"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.6.0"`.
    (By default both the game and the SDK use `~/CoverUpMaps` (Linux/macOS) or
    `Documents\CoverUpMaps` (Windows) — no path setup needed. To relocate, see
    *Changing the folder* above.)

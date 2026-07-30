@@ -5,6 +5,18 @@ All notable changes to the Cover Up! Map SDK. Format follows
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-07-29
+
+### Added
+- **`MapMirror`** — mark any flat surface (a Quad, typically) as a live planar mirror.
+  Inert data plus a self-maintained registry: the game's `MirrorRenderer` activates at
+  most one mirror at a time (the nearest eligible within its author-tuned
+  `ActivationDistance`, clamped 5–40 m) and renders a plane-reflected scene pass into it;
+  every other mirror — and every mirror on game builds that predate the component, where
+  the loader strips the unknown script — shows the author's own material as a fallback
+  face. The reflective side is the visible face of a Quad (`-transform.forward`), and the
+  mesh pivot must lie on the glass plane. Validate Map soft-warns above 4 per scene.
+
 ## [0.5.5] — 2026-07-29
 
 ### Added

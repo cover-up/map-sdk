@@ -115,6 +115,14 @@ namespace CoverUp.EditorTools
 
             CheckWorkshopMetadata(scene, warnings);
 
+            // Mirrors are fine in any count at runtime (only the nearest one is
+            // ever live), but a wall of them means most show their static
+            // fallback face — usually not what the author pictured.
+            var mirrors = FindAllInScene<MapMirror>(scene);
+            if (mirrors.Count > 4)
+                warnings.Add($"{mirrors.Count} MapMirror surfaces — only one (the nearest) shows a live " +
+                    "reflection at a time; the rest show their fallback material. Intended?");
+
             MapSizeVariants variants = MapSizeVariants.FindInScene(scene);
             var spawns = FindAllInScene<MapSpawnDisc>(scene);
             var bounds = FindAllInScene<MapBoundsVolume>(scene);

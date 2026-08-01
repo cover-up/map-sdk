@@ -89,6 +89,7 @@ namespace CoverUp.EditorTools
                     + "components and standard Unity components (Docs/Steam.md §8).");
 
             CheckReferenceDolls(scene, errors);
+            CheckCamoShaders(scene, warnings);
 
             // MapConfig is the single player-scale source; a gameplay map without
             // one runs at GameScale.Default (allowed, but usually a mistake).
@@ -237,6 +238,39 @@ namespace CoverUp.EditorTools
         /// Cheap belt-and-braces, not the only line of defence: a doll is pure gizmo,
         /// so even one that survived the strip would be invisible in game.
         /// </summary>
+        /// <summary>
+        /// Warn about surfaces the eyedropper can't read a true colour from.
+        ///
+        /// A warning, not an error: a custom shader is a legitimate authoring choice,
+        /// and the consequence is precision, not breakage — the sampler falls back to
+        /// reading the rendered pixel, which is what it did before Paint v2. But the
+        /// author should hear it from Validate Map rather than from players who can't
+        /// camouflage against half the level. See CamoShaderPolicy / Docs/Steam.md §8.8.
+        /// </summary>
+        private static void CheckCamoShaders(Scene scene, List<string> warnings)
+        {
+            var seen = new HashSet<string>();
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
+                {
+                    foreach (Material m in r.sharedMaterials)
+                    {
+                        if (m == null || m.shader == null) continue;
+                        if (CamoShaderPolicy.IsAlbedoTruthful(m.shader)) continue;
+                        seen.Add(m.shader.name);
+                    }
+                }
+            }
+            foreach (string name in seen)
+            {
+                warnings.Add($"Shader '{name}' isn't one the eyedropper can read a true colour from, "
+                    + "so hiders sampling those surfaces get the on-screen colour instead of the "
+                    + "material's — less exact under strong lighting. Use a URP Lit/Unlit material "
+                    + "for anything players are meant to camouflage against.");
+            }
+        }
+
         private static void CheckReferenceDolls(Scene scene, List<string> errors)
         {
             foreach (MapReferenceDoll doll in FindAllInScene<MapReferenceDoll>(scene))

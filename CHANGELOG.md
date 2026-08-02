@@ -5,6 +5,47 @@ All notable changes to the Cover Up! Map SDK. Format follows
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-08-01
+
+### Added
+- **Maps now have a resource budget.** `MapBudget` holds one set of limits and the census
+  that measures a scene against them; **Validate Map** and **Export Workshop Map** enforce
+  it, and the game checks it again when it loads a map, so nothing gets past by being
+  exported some other way. Limits block an export; guidelines only warn. Covers bundle
+  size, asset memory, lights, audio, particles, rigidbodies, renderers, vertices and mesh
+  collider vertices. The full table is in the creator guide.
+
+  Two of the limits are player safety rather than housekeeping, and they behave
+  differently from the rest:
+
+  - **Map audio plays under the player's Game Sounds volume.** Your `AudioSource` volumes
+    are relative, not absolute. Looping non-positional sources are additionally scaled as
+    a group so they cannot sum to more than full volume, and an export is refused if they
+    do — better to hear it here than to ship a map that plays quieter than you built it.
+  - **A map's lights cannot strobe.** How fast a light may change brightness is capped for
+    photosensitivity, for every player, not only those who have asked for reduced
+    flashing. Slow fades, dusk transitions and gentle flicker are untouched; the cap only
+    bites on large, fast, repeated changes.
+
+- **`Cover Up! → Maps → Diagnostics → Map Budget Report`** — every census number for the
+  open scene beside its cap, whether or not anything is over. Also runs headless
+  (`MapBudgetReport.RunHeadless -scene <path> [-memory]`).
+
+### Changed
+- **`Map Size Report` is now also the memory budget's measurement.** It used to walk the
+  scene's whole dependency set, print the result and discard it; the numbers now feed the
+  asset-memory limit, and an over-budget export names the heaviest assets rather than just
+  refusing.
+- **Sized maps are measured at their heaviest single size, not the sum.** Only one size
+  root is ever live, so a three-size map is never charged for two at once.
+- `map.json` is **format 3**: it carries a `budget` block recording what the export
+  measured. Advisory, exactly like `contract` — it exists so the game can describe a map
+  before opening its bundle, and is never trusted as a limit. Format-2 packages load
+  unchanged.
+- **Publishing refuses a package that was only ever auto-exported on save.** The
+  asset-memory walk is slow, so auto-export skips it; a real **Export Workshop Map** is now
+  required once before a map can be published.
+
 ## [0.6.0] — 2026-07-29
 
 ### Added

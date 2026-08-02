@@ -255,7 +255,7 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.6.0"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.7.0"`.
    (By default both the game and the SDK use `~/CoverUpMaps` (Linux/macOS) or
    `Documents\CoverUpMaps` (Windows) — no path setup needed. To relocate, see
    *Changing the folder* above.)
@@ -268,6 +268,63 @@ than an afterthought.
    solo, no round. Move around, paint, check sight-lines.
 6. Edit + export again; the game **hot-reloads** you into the updated map within a
    second. This is the core loop — keep the game running while you iterate in Unity.
+
+### What a map is allowed to cost
+
+Maps have a budget. **Validate Map** and **Export Workshop Map** check it, and the game
+checks it again when it loads your map, so nothing gets past by being exported some
+other way.
+
+Two kinds of limit:
+
+- **Limits** (✗) stop the export. Your map can't be published over one.
+- **Guidelines** (•) are warnings. Nothing blocks; they're the point at which it's worth
+  looking again at what you built.
+
+| | limit | guideline |
+|---|---|---|
+| Bundle file, per platform | 1.5 GB | 300 MB |
+| Asset memory | 3 GB | 1.5 GB |
+| Realtime directional lights ("suns") | 1 | |
+| Realtime point / spot lights | 64 | 24 |
+| Audio sources | 64 | 16 |
+| Combined volume of looping non-positional audio | 1.0 | |
+| Non-kinematic rigidbodies | 128 | 32 |
+| Particle systems / total max particles | 64 / 200,000 | 16 / 50,000 |
+| Renderers | | 5,000 |
+| Vertices | | 12,000,000 |
+| Mesh collider vertices | | 500,000 |
+
+**Cover Up! → Maps → Diagnostics → Map Budget Report** prints every one of these numbers
+for the open scene next to its cap, whether or not anything is over. **Map Size Report**
+in the same menu breaks the memory figure down by asset and by source pack, which is how
+you find out that one texture is a third of your map.
+
+Things worth knowing before you hit one of these:
+
+- **Baked lights are free.** They're already in the lightmap and cost nothing at runtime,
+  so they don't count against the light limits at all. Only realtime and mixed lights do.
+- **A sized map is measured at its heaviest single size**, not the sum of Small, Medium
+  and Large. Only one size root is ever live, so you're never charged for two at once.
+- **The guidelines are generous.** For scale: the game's own hub island is 959 renderers,
+  5.7M vertices and 587 MB of assets, and sits inside every guideline here.
+
+### Audio and lights behave differently in game
+
+Two things the game does to a map's audio and lighting that you should know about, so the
+difference doesn't look like a bug:
+
+- **Map audio plays under the player's Game Sounds volume.** Your `AudioSource` volumes
+  are relative, not absolute. A player who has turned game sounds down has turned your
+  ambience down too, which is what they asked for. Looping non-positional sources (the
+  ones that play at the same volume everywhere) are additionally scaled as a group so
+  they can't sum to more than full volume.
+- **A map's lights can't strobe.** How fast a light may change brightness is capped for
+  photosensitivity, always, not just for players who have asked for reduced flashing.
+  Slow fades, dusk transitions and gentle flicker pass through exactly as you authored
+  them — the cap only bites on large, fast, repeated changes. If you animate a light
+  faster than about three flashes a second, players will see it slower than you do in the
+  editor. Validate Map tells you when a light is animated.
 
 ### A note on camouflage balance
 

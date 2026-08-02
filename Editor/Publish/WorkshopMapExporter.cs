@@ -61,8 +61,13 @@ namespace CoverUp.EditorTools
                 return;
             }
 
-            // 1. Contract must pass (same checks as Validate Map).
-            var (errors, _, _) = MapSizeTools.Validate(scene);
+            // 1. Contract must pass (same checks as Validate Map), and the resource
+            //    budget with it (Docs/Steam.md §8.9). The asset-memory measurement
+            //    walks the whole dependency set, so it runs only on the real export:
+            //    the save-triggered path would pay it on every Ctrl+S. Publish refuses
+            //    a package that was only ever quick-exported, which is what stops that
+            //    speed trade from becoming a hole.
+            var (errors, _, _) = MapSizeTools.Validate(scene, measureMemory: interactive, out WorkshopBudget budget);
             if (errors.Count > 0)
             {
                 string msg = "Validate Map found problems — fix these first:\n• " + string.Join("\n• ", errors);
@@ -146,6 +151,30 @@ namespace CoverUp.EditorTools
                         return;
                     }
 
+                    // Bundle size is the one budget number that cannot be known before
+                    // the build, so it is checked here rather than in Validate. The
+                    // hard cap aborts; nobody should discover a 2 GB map at the point
+                    // where a lobby full of players is waiting to download it.
+                    // An EMPTY census on purpose: the scene's own counts were judged by
+                    // Validate above and passed, so re-judging them here would only
+                    // repeat warnings the creator has already read. This asks Check one
+                    // question, about the bundle.
+                    long bundleBytes = new FileInfo(built).Length;
+                    var overHard = new List<string>();
+                    var overSoft = new List<string>();
+                    MapBudget.Check(default, bundleBytes, -1, overHard, overSoft);
+                    if (overHard.Count > 0)
+                    {
+                        string m = string.Join("\n• ", overHard);
+                        if (interactive) Fail("Over the map budget:\n• " + m);
+                        else Debug.LogError("[CoverUp] auto-export — over the map budget: " + m);
+                        return;
+                    }
+                    foreach (string s in overSoft) Debug.LogWarning("[CoverUp] " + s);
+                    // The largest platform bundle is the one that decides whether a
+                    // player can afford this map, so that is the number recorded.
+                    budget.bundleBytes = Math.Max(budget.bundleBytes, bundleBytes);
+
                     string dest = Path.Combine(outDir, t.File);
                     File.Copy(built, dest, true);
                     var reff = new WorkshopBundleRef { file = t.File, sha256 = Sha256(dest) };
@@ -172,6 +201,10 @@ namespace CoverUp.EditorTools
                 bundles = bundles,
                 preview = previewName,
                 contract = contract,
+                // Measured before the build (the census) and during it (the bundle
+                // size), so nothing here reads a scene object that the build's
+                // unload/restore dance has already destroyed — see the step-2 note.
+                budget = budget,
                 builtWith = new WorkshopBuiltWith
                 {
                     game = Application.version,

@@ -72,8 +72,40 @@ namespace CoverUp.EditorTools
         /// <summary>Run the _CoverUpMap contract checks on a scene and return the
         /// findings without any UI — shared by the Validate Map menu and the
         /// Workshop exporter (which aborts on any error). <c>kind</c> is the
-        /// one-line verdict header (map type + doll scale).</summary>
-        public static (List<string> errors, List<string> warnings, string kind) Validate(Scene scene)
+        /// one-line verdict header (map type + doll scale).
+        ///
+        /// <paramref name="measureMemory"/> also runs the asset-memory budget
+        /// (Docs/Steam.md §8.9). It walks the whole transitive dependency set, so it
+        /// is slow enough that the auto-export-on-save path turns it off; the full
+        /// Export and the Validate Map menu keep it on, and Publish refuses a package
+        /// that was never measured.</summary>
+        public static (List<string> errors, List<string> warnings, string kind) Validate(
+            Scene scene, bool measureMemory = true)
+            => Validate(scene, measureMemory, out _);
+
+        /// <summary>As <see cref="Validate(Scene, bool)"/>, and hands back what the
+        /// budget pass measured so the exporter can record it in map.json without
+        /// walking the dependency set a second time (that walk is the slow part of an
+        /// export). <c>runtimeBytes</c> is -1 when the measurement was skipped or
+        /// cancelled.</summary>
+        public static (List<string> errors, List<string> warnings, string kind) Validate(
+            Scene scene, bool measureMemory, out WorkshopBudget budget)
+        {
+            budget = new WorkshopBudget();
+            _pendingBudget = budget;
+            try { return ValidateInner(scene, measureMemory); }
+            finally { _pendingBudget = null; }
+        }
+
+        // CheckBudget is buried several calls down inside ValidateInner and every
+        // frame of that path already returns the (errors, warnings, kind) tuple. A
+        // field for the duration of one synchronous call is a smaller price than
+        // threading an out-parameter through the whole contract check — and Validate
+        // is only ever called from the main thread, from a menu or an export.
+        private static WorkshopBudget _pendingBudget;
+
+        private static (List<string> errors, List<string> warnings, string kind) ValidateInner(
+            Scene scene, bool measureMemory)
         {
             var errors = new List<string>();
             var warnings = new List<string>();
@@ -115,6 +147,7 @@ namespace CoverUp.EditorTools
                 : ", default scale";
 
             CheckWorkshopMetadata(scene, warnings);
+            CheckBudget(scene, measureMemory, errors, warnings);
 
             // Mirrors are fine in any count at runtime (only the nearest one is
             // ever live), but a wall of them means most show their static
@@ -447,6 +480,63 @@ namespace CoverUp.EditorTools
             if (aspect > 0f && (aspect < 1.2f || aspect > 2.4f))
                 warnings.Add($"Preview '{preview.name}' is {aspect:0.##}:1 — the map card centre-crops to fill, "
                     + "so a squarer or very wide image loses a lot of its height. 16:9 crops best.");
+
+            // Past the runtime's decode cap the card silently falls back to the grey
+            // plate on every machine that installs the map, so say so here rather
+            // than letting a creator find out from someone else's screenshot.
+            if (preview.width > MaxRuntimePreviewSide || preview.height > MaxRuntimePreviewSide
+                || (long)preview.width * preview.height > MaxRuntimePreviewPixels)
+                warnings.Add($"Preview '{preview.name}' is {preview.width}x{preview.height}, past the game's "
+                    + $"decode cap ({MaxRuntimePreviewSide} px per side, {MaxRuntimePreviewPixels} px total), so "
+                    + "the map's card will render as a blank plate. Downscale it; ≈"
+                    + $"{RecommendedPreviewW}x{RecommendedPreviewH} is what the card draws anyway.");
+        }
+
+        /// <summary>
+        /// The resource budget (Docs/Steam.md §8.9). Hard breaches are errors, so
+        /// they abort Export and therefore Publish; soft ones are warnings a creator
+        /// can weigh. The numbers all live in <see cref="MapBudget"/> — the same ones
+        /// the runtime governor re-checks on the loaded scene, so a map that passes
+        /// here cannot be refused in game for a limit it was never told about.
+        ///
+        /// The bundle-size cap is NOT checked here: Validate runs before anything is
+        /// built, so there is no bundle to weigh. The exporter checks it per platform
+        /// as each one finishes building.
+        /// </summary>
+        private static void CheckBudget(Scene scene, bool measureMemory, List<string> errors, List<string> warnings)
+        {
+            MapBudget.Census census = MapBudget.Take(scene);
+
+            long runtimeBytes = -1;
+            string heaviest = null;
+            if (measureMemory && !string.IsNullOrEmpty(scene.path))
+            {
+                // No progress bar in batch mode — there is nobody to cancel it, and an
+                // unclosable modal is how a headless export hangs a build script.
+                MapSizeReport.Measurement m = MapSizeReport.Measure(scene.path, !Application.isBatchMode);
+                // A cancelled walk measured only part of the map. Reporting that total
+                // would quietly pass a map that is over budget, so a cancel means "not
+                // measured" and the memory cap simply doesn't apply this run.
+                if (!m.Cancelled)
+                {
+                    runtimeBytes = m.TotalBytes;
+                    heaviest = m.TopOffenders(3);
+                }
+            }
+
+            var hard = new List<string>();
+            var soft = new List<string>();
+            MapBudget.Check(census, bundleBytes: -1, runtimeBytes, hard, soft, heaviest);
+            errors.AddRange(hard);
+            warnings.AddRange(soft);
+
+            if (_pendingBudget != null)
+            {
+                _pendingBudget.census = census;
+                _pendingBudget.runtimeBytes = runtimeBytes;
+                // bundleBytes stays -1 — nothing is built yet. The exporter fills it
+                // in as each platform bundle lands.
+            }
         }
 
         // --------------------------------------------------------------- utils
@@ -454,6 +544,13 @@ namespace CoverUp.EditorTools
         // What the menu's map card wants: wide enough not to upscale, close enough to
         // 16:9 that the cover-crop keeps most of the shot.
         private const int RecommendedPreviewW = 1280, RecommendedPreviewH = 720, MinPreviewW = 640;
+
+        // What the RUNTIME refuses to decode (ImageHeader in CoverUp.Presentation,
+        // Steam.md §8.3 defence #3). Restated here rather than referenced: the SDK
+        // package stays free of game code (MapSdk.md §2). If those caps move, this
+        // warning is the other half to move with them.
+        private const int MaxRuntimePreviewSide = 8192;
+        private const long MaxRuntimePreviewPixels = 16L << 20;
 
         /// <summary>Both sides must have somewhere to land. A single Both disc covers
         /// everyone; dedicated discs cover only their own role, so a map that adds a

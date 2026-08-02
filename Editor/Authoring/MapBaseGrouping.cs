@@ -130,7 +130,10 @@ namespace CoverUp.EditorTools
                 Debug.Log($"[CoverUp] Group Base: moved {moved} object(s) in {path}");
                 EditorSceneManager.SaveScene(scene, path);
 
-                var (errors, warnings, kind) = MapSizeTools.Validate(scene);
+                // measureMemory: false — Group Base is a structural migration, and the
+                // asset-memory walk it would otherwise pay for says nothing about
+                // whether the grouping worked.
+                var (errors, warnings, kind) = MapSizeTools.Validate(scene, measureMemory: false);
                 Debug.Log($"[CoverUp] Validate Map — {kind}");
                 foreach (string w in warnings) Debug.Log("[CoverUp] • " + w);
                 foreach (string e in errors) Debug.LogError("[CoverUp] ✗ " + e);

@@ -13,8 +13,14 @@ namespace CoverUp.Gameplay
     [Serializable]
     public sealed class WorkshopMapManifest
     {
-        public const int CurrentFormat = 2;
+        public const int CurrentFormat = 3;
         public const string FileName = "map.json";
+
+        /// <summary>Refusal size for map.json. A manifest is a few hundred bytes of
+        /// metadata; 1 MB is ~1000× the real thing and still bounded, where the
+        /// unlimited <c>ReadAllText</c> this replaces would happily pull a 4 GB
+        /// "manifest" from a downloaded package into managed memory.</summary>
+        public const long MaxManifestBytes = 1L << 20;
 
         public int format = CurrentFormat;
         public string mapId;
@@ -32,6 +38,7 @@ namespace CoverUp.Gameplay
         // item instead of creating a duplicate (Steam S6 P3).
         public string workshopItemId = "";
         public WorkshopContract contract = new WorkshopContract();
+        public WorkshopBudget budget = new WorkshopBudget();
         public WorkshopBuiltWith builtWith = new WorkshopBuiltWith();
         public string createdUtc;
 
@@ -41,14 +48,24 @@ namespace CoverUp.Gameplay
         public string ToJson() => JsonUtility.ToJson(this, true);
         public static WorkshopMapManifest FromJson(string json) => JsonUtility.FromJson<WorkshopMapManifest>(json);
 
-        /// <summary>Read map.json from a package folder; null if missing/invalid.</summary>
+        /// <summary>Read map.json from a package folder; null if missing/invalid, or
+        /// larger than <see cref="MaxManifestBytes"/>. The file comes from a
+        /// downloaded package, so its size is attacker-chosen and is checked
+        /// before a byte of it is read.</summary>
         public static WorkshopMapManifest Read(string packageFolder)
         {
             try
             {
                 if (string.IsNullOrEmpty(packageFolder)) return null;
                 string path = Path.Combine(packageFolder, FileName);
-                return File.Exists(path) ? FromJson(File.ReadAllText(path)) : null;
+                var info = new FileInfo(path);
+                if (!info.Exists) return null;
+                if (info.Length > MaxManifestBytes)
+                {
+                    Debug.LogWarning($"[Workshop] Ignoring oversized {FileName} ({info.Length} bytes) in {packageFolder}");
+                    return null;
+                }
+                return FromJson(File.ReadAllText(path));
             }
             catch { return null; }
         }
@@ -108,12 +125,33 @@ namespace CoverUp.Gameplay
             return path != null && File.Exists(path) ? path : null;
         }
 
+        /// <summary>Full path to the package's preview image, or null (no manifest /
+        /// no preview named / the file is missing / the path escapes the package
+        /// folder). <c>preview</c> is attacker-controlled exactly like
+        /// <c>bundle.file</c>, since both come from a downloaded map.json, so it
+        /// goes through the same containment guard rather than a raw
+        /// <see cref="Path.Combine"/>. Pass an already-parsed
+        /// <paramref name="manifest"/> to skip re-reading map.json; null re-reads it.</summary>
+        public static string ResolvePreviewFile(string packageFolder, WorkshopMapManifest manifest = null)
+        {
+            manifest ??= Read(packageFolder);
+            if (manifest == null || string.IsNullOrEmpty(manifest.preview)) return null;
+            string path = ResolveInside(packageFolder, manifest.preview);
+            return path != null && File.Exists(path) ? path : null;
+        }
+
         /// <summary>Combine <paramref name="folder"/> with a manifest-supplied
         /// relative <paramref name="file"/>, but only if the result stays inside
         /// <paramref name="folder"/>. Returns null for absolute paths, rooted
         /// paths, or any <c>../</c> that escapes the folder — the anti
-        /// path-traversal guard for untrusted map.json bundle references.</summary>
-        private static string ResolveInside(string folder, string file)
+        /// path-traversal guard every untrusted map.json file reference goes
+        /// through (bundle and preview alike).
+        ///
+        /// <para>Public so that any NEW consumer of a manifest-supplied filename has
+        /// the guard within reach rather than reaching for <see cref="Path.Combine"/>.
+        /// The publish gate weighing both platform bundles was the first such
+        /// consumer.</para></summary>
+        public static string ResolveInside(string folder, string file)
         {
             try
             {
@@ -157,6 +195,34 @@ namespace CoverUp.Gameplay
         public int autoSmallMaxPlayers;
         public int autoMediumMaxPlayers;
         public bool hasSpawn;
+    }
+
+    /// <summary>
+    /// format 3 (2026-08-01): what the exporter measured this map to cost
+    /// (Docs/Steam.md §8.9). Written by <c>WorkshopMapExporter</c>, read by the
+    /// publish gate, which refuses a package that is over budget or was never
+    /// measured (<c>runtimeBytes</c> &lt; 0, i.e. it only ever went through the fast
+    /// auto-export-on-save path).
+    ///
+    /// <para><b>Advisory, exactly like <see cref="WorkshopContract"/>, and for the
+    /// same reason.</b> A downloaded map.json is attacker-controlled, so nothing that
+    /// enforces a limit may read it: the runtime re-takes the census on the actual
+    /// loaded scene. This block exists so the publish gate and the browser card can
+    /// say something before a bundle is opened.</para>
+    ///
+    /// A format-2 package still parses — every field simply reads its default, which
+    /// is the "never measured" state — so old packages keep loading and are asked for
+    /// a re-export only if someone publishes one.
+    /// </summary>
+    [Serializable]
+    public sealed class WorkshopBudget
+    {
+        /// <summary>Largest per-platform bundle in the package, or -1 if unrecorded.</summary>
+        public long bundleBytes = -1;
+        /// <summary>Profiled runtime memory of the bundle's asset set, or -1 if the
+        /// export skipped the measurement (the auto-export-on-save path does).</summary>
+        public long runtimeBytes = -1;
+        public MapBudget.Census census;
     }
 
     [Serializable]

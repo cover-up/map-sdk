@@ -255,7 +255,7 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.7.0"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.8.0"`.
    (By default both the game and the SDK use `~/CoverUpMaps` (Linux/macOS) or
    `Documents\CoverUpMaps` (Windows) — no path setup needed. To relocate, see
    *Changing the folder* above.)
@@ -285,7 +285,7 @@ Two kinds of limit:
 |---|---|---|
 | Bundle file, per platform | 1.5 GB | 300 MB |
 | Asset memory | 3 GB | 1.5 GB |
-| Realtime directional lights ("suns") | 1 | |
+| Realtime directional lights (the sun + the standard fill) | 2 | |
 | Realtime point / spot lights | 64 | 24 |
 | Audio sources | 64 | 16 |
 | Combined volume of looping non-positional audio | 1.0 | |

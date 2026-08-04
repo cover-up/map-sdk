@@ -88,9 +88,12 @@ namespace CoverUp.Gameplay
             /// comes from reports nothing in a release player.</summary>
             public const long RuntimeBytes = 3L << 30;     // 3 GB
 
-            /// <summary>A second sun is a lighting bug in every case we have ever
-            /// seen, and two directional lights double full-scene shading.</summary>
-            public const int DirectionalLights = 1;
+            /// <summary>Two, not one, since 0.8.0: the arena lighting standard is a
+            /// sun PLUS a dim fill lamp (see ArenaStandards), and both are
+            /// directional. A THIRD is still the lighting bug this cap has always
+            /// caught, and each extra directional shades every surface in the
+            /// scene again.</summary>
+            public const int DirectionalLights = 2;
 
             public const int RealtimeLights = 64;
             public const int AudioSources = 64;
@@ -397,8 +400,9 @@ namespace CoverUp.Gameplay
             }
 
             if (c.DirectionalLights > Hard.DirectionalLights)
-                hard.Add($"{c.DirectionalLights} realtime directional lights — a map gets {Hard.DirectionalLights}. "
-                    + "A second sun doubles the shading cost of every surface and is almost always a mistake.");
+                hard.Add($"{c.DirectionalLights} realtime directional lights — a map gets {Hard.DirectionalLights} "
+                    + "(the sun and the standard fill). Another sun shades every surface in the "
+                    + "scene again and is almost always a mistake.");
 
             if (c.RealtimeLights > Hard.RealtimeLights)
                 hard.Add($"{c.RealtimeLights} realtime lights, over the limit of {Hard.RealtimeLights}. "

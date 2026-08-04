@@ -5,6 +5,23 @@ All notable changes to the Cover Up! Map SDK. Format follows
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-08-04
+
+### Changed
+- **Arena lighting gained a fill lamp, and the sun brightened to 0.78.** `ArenaStandards`
+  now mirrors the game menu's studio rig: the canonical sun at 0.78 (was 0.7) plus a dim
+  white **Fill Light** (0.16) aimed low and opposite the sun, so down- and back-faces
+  keep some modelling instead of sitting flat on the ambient floor. The flat ambient
+  stays 0.55. `BuildLighting` creates both lights for new scenes.
+- **New menu item: `Cover Up! → Maps → Apply Arena Lighting`** retunes the open scene to
+  the standard: normalises every directional to the canonical sun, creates or retunes the
+  fill, applies the flat ambient. Sun orientation stays as authored; the fill re-aims
+  itself opposite it. The fill is recognised **by name** ("Fill Light") — rename it and
+  the retune treats it as a second sun.
+- **The directional-light budget is now 2** (was 1), because the standard rig is a sun
+  plus a fill and both are directional. A third still blocks an export, for the same
+  reason one used to: every extra directional shades the whole scene again.
+
 ## [0.7.0] — 2026-08-01
 
 ### Added

@@ -285,7 +285,16 @@ namespace CoverUp.Gameplay
                 // A fully baked light costs nothing at runtime — it is already in the
                 // lightmap — so it must not count against a realtime cap. Mixed does
                 // shade in realtime, so it does.
+#if UNITY_EDITOR
                 bool realtime = l.lightmapBakeType != LightmapBakeType.Baked;
+#else
+                // Light.lightmapBakeType is EDITOR-ONLY (player builds fail to
+                // compile it — 2026-08-04). In a player the authored intent has
+                // become bakingOutput: a light that actually got baked reports
+                // isBaked + Baked there; anything else still shades in realtime.
+                bool realtime = !l.bakingOutput.isBaked ||
+                    l.bakingOutput.lightmapBakeType != LightmapBakeType.Baked;
+#endif
                 bool animated = l.GetComponentInParent<Animator>() != null
                                 || l.GetComponentInParent<Animation>() != null;
 

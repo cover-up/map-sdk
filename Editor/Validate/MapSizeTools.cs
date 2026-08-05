@@ -122,6 +122,7 @@ namespace CoverUp.EditorTools
 
             CheckReferenceDolls(scene, errors);
             CheckCamoShaders(scene, warnings);
+            CheckEnvironmentReflections(scene, warnings);
 
             // MapConfig is the single player-scale source; a gameplay map without
             // one runs at GameScale.Default (allowed, but usually a mistake).
@@ -302,6 +303,31 @@ namespace CoverUp.EditorTools
                     + "material's — less exact under strong lighting. Use a URP Lit/Unlit material "
                     + "for anything players are meant to camouflage against.");
             }
+        }
+
+        /// <summary>
+        /// Warn when the skybox is still reflecting into surfaces. A flat ambient
+        /// alone does not stop it — the environment-reflection term is separate,
+        /// and its grazing-angle fresnel shades a flat wall unevenly across its
+        /// own face, which is exactly what camouflage cannot survive. See
+        /// ArenaStandards.ReflectionIntensity for the full diagnosis.
+        ///
+        /// A warning, like the camo-shader one: the map still works, it just
+        /// can't be matched precisely. Apply Arena Lighting is the one-click fix.
+        ///
+        /// RenderSettings is per-ACTIVE-scene global state, so this can only speak
+        /// for the active scene; validating some other open scene skips the check
+        /// rather than reporting the wrong scene's settings as if they were its.
+        /// </summary>
+        private static void CheckEnvironmentReflections(Scene scene, List<string> warnings)
+        {
+            if (scene != SceneManager.GetActiveScene()) return;
+            if (Mathf.Approximately(RenderSettings.reflectionIntensity, ArenaStandards.ReflectionIntensity)) return;
+            warnings.Add($"Environment reflections are at {RenderSettings.reflectionIntensity:0.##} — the skybox is "
+                + "lighting your surfaces on top of the ambient, and it lands unevenly across a single flat "
+                + "face (strongest at grazing angles). Hiders can't match that: the bløb has no environment "
+                + "reflections at all. Run Cover Up!/Maps/Apply Arena Lighting, or set Lighting ▸ Environment "
+                + "▸ Intensity Multiplier to 0. Your skybox stays visible as a backdrop either way.");
         }
 
         private static void CheckReferenceDolls(Scene scene, List<string> errors)

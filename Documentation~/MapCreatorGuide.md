@@ -255,7 +255,7 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.8.0"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.8.1"`.
    (By default both the game and the SDK use `~/CoverUpMaps` (Linux/macOS) or
    `Documents\CoverUpMaps` (Windows) — no path setup needed. To relocate, see
    *Changing the folder* above.)
@@ -332,6 +332,20 @@ This is a hiding game, so **lighting and materials are gameplay**. Flat/unlit
 surfaces make hiding trivial; high-frequency noise everywhere makes it impossible; a
 stray rim light makes every hider pop. There is no automated check for this yet —
 it's on you to keep the map fair. Test from a hider's eye, not just a flythrough.
+
+**`Cover Up! ▸ Maps ▸ Apply Arena Lighting`** puts the open scene on the standard rig
+in one click: the canonical sun, a dim fill opposite it, a flat ambient, and no
+environment reflections. Your sun's *direction* is yours — the retune only normalises
+brightness — and your geometry, materials and props are never touched.
+
+That last part is the one people trip on. **Switch your environment reflections off**
+(Lighting ▸ Environment ▸ Intensity Multiplier = 0; the retune does it for you). A flat
+ambient doesn't stop the skybox lighting your surfaces: reflection is a separate term,
+and it gets stronger toward glancing angles, so the sky gradient shades a single flat
+wall unevenly across its own face. A hider who paints themselves to match that wall
+matches only one part of it, because the bløb has no environment reflections at all.
+Validate Map warns you when a scene still has them on. **Your skybox stays visible** —
+this only removes what it contributes to shading.
 
 ---
 

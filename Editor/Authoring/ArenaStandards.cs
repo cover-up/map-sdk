@@ -30,7 +30,9 @@ namespace CoverUp.EditorTools
     ///  3. Every surface a hider should blend to carries CamouflageSurface.
     ///  4. No reflection probes and no glossy trim: the blob body ships with
     ///     environment reflections OFF, so probe-lit or shiny props would
-    ///     visibly split from a body painted to match them.
+    ///     visibly split from a body painted to match them. Since 2026-08-05
+    ///     that extends to the SKYBOX, which is an environment reflection
+    ///     source in its own right — see <see cref="ReflectionIntensity"/>.
     ///
     /// The island LOBBY is the deliberate exception (skybox + Trilight mood
     /// lighting in IslandBuilder) — social space, not a scoring arena.
@@ -41,6 +43,20 @@ namespace CoverUp.EditorTools
         public static readonly Quaternion SunRotation = Quaternion.Euler(50f, -30f, 0f);
         public static readonly Color FlatAmbient = new Color(0.55f, 0.55f, 0.55f);
         public const float SurfaceSmoothness = 0.1f;
+
+        /// <summary>How much the environment (in practice the skybox) reflects
+        /// into surfaces. ZERO for arenas, and it is not a stylistic preference:
+        /// a flat ambient does NOT stop the skybox lighting a map. URP's
+        /// environment-reflection term is separate from ambient, and its
+        /// fresnel rises toward grazing angles, so even at
+        /// <see cref="SurfaceSmoothness"/> a flat wall picks up the sky
+        /// gradient unevenly ACROSS ITSELF — brighter where it turns away from
+        /// the viewer. That breaks camouflage twice over: one surface is no
+        /// longer one colour, and the bløb (environment reflections OFF, per
+        /// rule 4 above) has no such term to match it with. Diagnosed on
+        /// diorama 2026-08-05. Maps keep their skybox as a BACKDROP — only its
+        /// contribution to surface shading is removed.</summary>
+        public const float ReflectionIntensity = 0f;
 
         /// <summary>The fill lamp, at the studio rig's key:fill ratio. Found BY
         /// NAME by the retune below and by the game's `stage` console command,
@@ -120,6 +136,7 @@ namespace CoverUp.EditorTools
         {
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
             RenderSettings.ambientLight = FlatAmbient;
+            RenderSettings.reflectionIntensity = ReflectionIntensity;
         }
 
         /// <summary>The canonical blendable-surface material: URP/Lit, flat

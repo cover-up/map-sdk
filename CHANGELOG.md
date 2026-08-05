@@ -5,6 +5,22 @@ All notable changes to the Cover Up! Map SDK. Format follows
 
 ## [Unreleased]
 
+## [0.8.1] — 2026-08-05
+
+### Fixed
+- **The skybox no longer lights your surfaces.** A flat ambient was never enough on its
+  own: URP's environment reflection is a separate term, and its fresnel climbs toward
+  grazing angles, so the sky gradient shaded a single flat wall unevenly *across its own
+  face* — brightest where it turned away from the viewer. Camouflage cannot survive that
+  (one surface stopped being one colour, and the bløb, which has environment reflections
+  switched off entirely, had nothing to match it with). `ArenaStandards` now sets
+  `RenderSettings.reflectionIntensity` to 0, so `Apply Arena Lighting` and every
+  newly-built arena get it. **Your skybox still renders as a backdrop** — only its
+  contribution to surface shading is gone.
+- **Validate Map warns when a scene still has environment reflections on**, for maps that
+  never run the retune. A warning, not an error: the map works, it just can't be matched
+  precisely.
+
 ## [0.8.0] — 2026-08-04
 
 ### Changed

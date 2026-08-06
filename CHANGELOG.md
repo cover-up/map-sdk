@@ -5,6 +5,34 @@ All notable changes to the Cover Up! Map SDK. Format follows
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-08-06
+
+### Changed
+- **Arena lighting retuned to the measured reference.** The sun drops 0.78 → **0.592**
+  and the flat ambient rises 0.55 → **0.699 sRGB**, solved as one pair so a body's shadow
+  side sits at **0.43** of its lit side (it was 0.252, which read grey). Total light on a
+  sun-facing surface is unchanged to within 0.4 % — this redistributes light, it does not
+  add any. The dim **Fill Light** is **retired** (intensity 0): the raised ambient does its
+  job, and a back-fill made the shading ramp non-monotone, which no measured reference ramp
+  is. Re-run **Apply Arena Lighting** on every map to adopt it. See
+  `Tools/blob-lab-unity/GAP-REPORT.md` for the measurements.
+- **Arena suns now cast soft shadows** (`ArenaStandards.SunShadows`). Previously the value
+  was never assigned, so scripted arenas silently had none and no character was grounded.
+
+### Added
+- **Per-map ambient tint** (`MapConfig.ambientTint`). A subtle tint the room's flat ambient
+  carries, so the bløb catches the room's colour without losing its white identity. Only
+  hue/chroma is used; the ambient LEVEL (and so the lit:shadow ratio) stays globally fixed,
+  and the saturation is clamped to a hint. White (default) = the neutral standard. Baked by
+  **Apply Arena Lighting**.
+- **Runtime lighting clamp** (`ArenaLighting.NormalizeActiveScene`). Every loaded map —
+  including third-party Workshop bundles we do not author — is pulled into the character's
+  supported envelope (ambient ±12 % luminance, saturation ≤ 0.14, sun ±20 % and desaturated
+  but bounded-warm, reflection/fog off) before the first rendered frame. Deterministic, so
+  every peer converges on identical lighting with no replication. The island hub is exempt.
+- **Validate Map fails a map outside the character envelope** (ambient level/saturation, sun
+  range/saturation), an error rather than a warning, with Apply Arena Lighting as the fix.
+
 ## [0.9.0] — 2026-08-05
 
 ### Changed

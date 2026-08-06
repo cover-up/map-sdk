@@ -60,8 +60,21 @@ namespace CoverUp.Gameplay
                  "when the space only reads one way. Hiders are always third person regardless.")]
         private MapHunterCamera hunterCamera = MapHunterCamera.Auto;
 
+        [SerializeField]
+        [ColorUsage(false)]
+        [Tooltip("A subtle tint this room's flat ambient carries, so the bløb catches the room's " +
+                 "colour without losing its white identity. White (default) = the global neutral " +
+                 "standard. Push it toward the room's dominant hue; only hue/chroma is used and the " +
+                 "SATURATION is clamped to a hint (the ambient LEVEL, and so the lit:shadow ratio, " +
+                 "stays globally fixed). Baked by Apply Arena Lighting and re-clamped at load.")]
+        private Color ambientTint = Color.white;
+
         /// <summary>The authored per-map hider scale, before clamping.</summary>
         public float HiderScale => hiderScale;
+
+        /// <summary>The per-map ambient tint (hue/chroma only; saturation is clamped
+        /// at apply/load). White = the global neutral standard.</summary>
+        public Color AmbientTint => ambientTint;
 
         /// <summary>The authored per-map hunter scale, before clamping.</summary>
         public float HunterScale => hunterScale;

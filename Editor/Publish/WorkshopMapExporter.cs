@@ -18,8 +18,11 @@ namespace CoverUp.EditorTools
     /// a Workshop map. Runs the Validate Map contract check, builds a
     /// self-contained AssetBundle per shipping platform (Windows + Linux), hashes
     /// each, writes map.json + preview.png, and zips the folder. Output lands in the
-    /// Local maps folder — <see cref="LocalMapsFolder"/>, i.e. <c>~/CoverUpMaps/&lt;mapId&gt;/</c>
-    /// (+ .zip alongside), or wherever a <c>localmaps.txt</c> override points. NOT
+    /// Local maps folder, <see cref="LocalMapsFolder"/>, i.e.
+    /// <c>~/CoverUpMaps/local/&lt;mapId&gt;/</c> (+ .zip alongside), or wherever a
+    /// <c>localmaps.txt</c> override points. Always the <c>local</c> channel: an editor is
+    /// an authoring context by definition, and a mapper who wants to try the package in
+    /// their Steam copy copies it into <c>live/</c> (Docs/Steam.md §8.10). NOT
     /// <c>&lt;project&gt;/Workshop/</c>: that was the pre-LocalMapsFolder output path and is
     /// dead — the game never reads it.
     ///
@@ -106,6 +109,9 @@ namespace CoverUp.EditorTools
 
             // Export straight into the Local maps folder the game reads — the
             // creator's SDK and the game agree on it (Docs/MapCreatorGuide.md).
+            // Migrate first so a folder authored before the channel layout does not end
+            // up with the old flat packages and the new ones side by side.
+            LocalMapsFolder.MigrateFlatLayout();
             string outRoot = LocalMapsFolder.Folder;
             string outDir = Path.Combine(outRoot, mapId);
             Directory.CreateDirectory(outDir);
@@ -436,7 +442,7 @@ namespace CoverUp.EditorTools
 
         private static T FindInScene<T>(Scene scene) where T : Component
         {
-            foreach (T c in UnityEngine.Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (T c in UnityEngine.Object.FindObjectsByType<T>(FindObjectsInactive.Include))
                 if (c.gameObject.scene == scene) return c;
             return null;
         }

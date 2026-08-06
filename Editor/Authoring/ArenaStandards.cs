@@ -98,7 +98,7 @@ namespace CoverUp.EditorTools
         public static void ApplyLightingToOpenScene()
         {
             Light sun = null, fill = null;
-            foreach (var light in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
+            foreach (var light in Object.FindObjectsByType<Light>())
             {
                 if (light.type != LightType.Directional) continue;
                 if (light.gameObject.name == FillLightName) { fill = light; continue; }

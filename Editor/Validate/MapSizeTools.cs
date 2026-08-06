@@ -729,7 +729,7 @@ namespace CoverUp.EditorTools
 
         private static T FindInScene<T>(Scene scene) where T : Component
         {
-            foreach (T c in Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (T c in Object.FindObjectsByType<T>(FindObjectsInactive.Include))
                 if (c.gameObject.scene == scene) return c;
             return null;
         }
@@ -737,7 +737,7 @@ namespace CoverUp.EditorTools
         private static List<T> FindAllInScene<T>(Scene scene) where T : Component
         {
             var list = new List<T>();
-            foreach (T c in Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (T c in Object.FindObjectsByType<T>(FindObjectsInactive.Include))
                 if (c.gameObject.scene == scene) list.Add(c);
             return list;
         }

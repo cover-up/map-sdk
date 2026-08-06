@@ -31,8 +31,28 @@ Linux:    ~/CoverUpMaps/            (NOT ~/Documents/CoverUpMaps)
 macOS:    ~/CoverUpMaps/
 ```
 
-Both the game and the SDK exporter default to this folder, so on a normal setup it
-*just works* with zero configuration.
+Inside it, maps are grouped by **which copy of the game reads them**:
+
+```
+CoverUpMaps/
+  local/        the SDK exporter writes here, and any non-Steam build reads it
+  live/         the game bought on Steam reads here
+  playtest/     the Steam playtest build reads here
+```
+
+The SDK always exports to `local/`, so the normal author-and-test loop *just works*
+with zero configuration. **To try an unpublished map in your Steam copy of the game,
+copy its folder from `local/` into `live/`.** That is the whole mechanism: no config
+file, no setting.
+
+The split exists because this folder is keyed on your user account and knows nothing
+about which build is running. Without it, a Steam build on a map author's machine picks
+up every map they have in progress and presents it as if it shipped that way.
+
+If you had maps sitting directly in `CoverUpMaps/` from before this change, the game
+and the SDK move them into `local/` for you the first time either one runs. Only
+folders containing a `map.json` move, an existing `local/<name>` is never overwritten,
+and everything else is left where it is.
 
 On Linux and macOS the folder sits directly in your home directory: the path comes from
 `Environment.GetFolderPath(MyDocuments)`, which Unity's Mono resolves to `$HOME` there —
@@ -63,23 +83,28 @@ the exporter writes to one folder and the game reads another.
 This is why there are no relative paths or symlinks: the game and the SDK are
 independent installs that agree on one folder, wherever it lives.
 
+The override names the **parent**, not a map folder: the `local/` `live/` `playtest/`
+split still happens inside whatever path you point it at, so one rule holds either way.
+
 ---
 
 ## What a map package looks like
 
-One subfolder per map. The game scans one level down for any folder containing a
-`map.json`.
+One subfolder per map, inside the channel folder. The game scans one level down from
+its own channel folder for anything containing a `map.json`.
 
 ```
 CoverUpMaps/
-  cold_storage/                ← your map package (folder name = map id by default)
-    map.json                   manifest (id, title, tags, per-platform hashes)
-    map.win.bundle             the built map, Windows
-    map.linux.bundle           the built map, Linux
-    preview.png                thumbnail (Workshop + in-game browser)
-  neon_alley/
-    map.json
-    ...
+  local/                       ← the channel folder (see "Where maps live" above)
+    cold_storage/              ← your map package (folder name = map id by default)
+      map.json                 manifest (id, title, tags, per-platform hashes)
+      map.win.bundle           the built map, Windows
+      map.linux.bundle         the built map, Linux
+      preview.png              thumbnail (Workshop + in-game browser)
+    neon_alley/
+      map.json
+      ...
+  live/                        ← copy a package here to test it in your Steam copy
 ```
 
 You never write these files by hand — **Export** produces them. `map.*.bundle` are
@@ -255,10 +280,10 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.8.1"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.9.0"`.
    (By default both the game and the SDK use `~/CoverUpMaps` (Linux/macOS) or
-   `Documents\CoverUpMaps` (Windows) — no path setup needed. To relocate, see
-   *Changing the folder* above.)
+   `Documents\CoverUpMaps` (Windows), with the SDK exporting into its `local/`
+   subfolder, so no path setup is needed. To relocate, see *Changing the folder* above.)
 3. Build your map from the `_CoverUpMap` template. **Cover Up! → Maps → Create
    Example Sized Map** gives you a working reference to copy (it lands in your
    project's `Assets/`).

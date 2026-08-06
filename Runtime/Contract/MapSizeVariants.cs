@@ -118,8 +118,7 @@ namespace CoverUp.Gameplay
         /// (inactive roots included — the whole point is toggling them).</summary>
         public static MapSizeVariants FindInScene(Scene scene)
         {
-            foreach (MapSizeVariants v in FindObjectsByType<MapSizeVariants>(
-                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (MapSizeVariants v in FindObjectsByType<MapSizeVariants>(FindObjectsInactive.Include))
             {
                 if (v.gameObject.scene == scene) return v;
             }

@@ -291,7 +291,7 @@ namespace CoverUp.EditorTools
 
         private static T FindInScene<T>(Scene scene) where T : Component
         {
-            foreach (T c in Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (T c in Object.FindObjectsByType<T>(FindObjectsInactive.Include))
                 if (c.gameObject.scene == scene) return c;
             return null;
         }

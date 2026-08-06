@@ -61,8 +61,7 @@ namespace CoverUp.EditorTools
         // Only map scenes (carry the _CoverUpMap contract's MapConfig) auto-export.
         private static bool IsMapScene(Scene scene)
         {
-            foreach (MapConfig c in UnityEngine.Object.FindObjectsByType<MapConfig>(
-                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (MapConfig c in UnityEngine.Object.FindObjectsByType<MapConfig>(FindObjectsInactive.Include))
             {
                 if (c.gameObject.scene == scene) return true;
             }

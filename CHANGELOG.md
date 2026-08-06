@@ -5,6 +5,35 @@ All notable changes to the Cover Up! Map SDK. Format follows
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-08-05
+
+### Changed
+- **Local maps now live one level down, in a channel folder.** `~/CoverUpMaps/` (or
+  `Documents\CoverUpMaps\`) is now a parent holding `local/`, `live/` and `playtest/`,
+  and each copy of the game reads only its own. **The SDK always exports to `local/`**,
+  so the normal author-and-test loop is unchanged. To try an unpublished map in the game
+  you bought on Steam, copy its package folder into `live/`.
+
+  Why: the folder is keyed on your user account and knew nothing about which build was
+  running, so a Steam build on a map author's machine picked up every map they had in
+  progress and presented it as its own content. Published Workshop maps were never
+  affected, since Steam already installs those per app.
+
+  A `localmaps.txt` override still names the **parent**, so the channel split happens
+  inside whatever path it points at and an existing override keeps working untouched.
+
+- **Existing flat layouts migrate themselves, once.** On editor load, on game boot and
+  before an export, any top-level folder containing a `map.json` moves down into
+  `local/`. Only directories that are actually maps move, an existing `local/<name>` is
+  never overwritten, and loose files (including the exported `.zip`s) stay where they
+  are.
+
+### Fixed
+- Dropped the deprecated `FindObjectsSortMode` argument from every `FindObjectsByType`
+  call in the package, and removed two unused locals in the example-map builder. No
+  behaviour change: every site passed `FindObjectsSortMode.None`, whose replacement is
+  the same overload without it. Builds are quiet on Unity 6000.5 again.
+
 ## [0.8.1] — 2026-08-05
 
 ### Fixed

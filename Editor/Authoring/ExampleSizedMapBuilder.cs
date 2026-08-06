@@ -97,7 +97,7 @@ namespace CoverUp.EditorTools
             Material doorMat = ArenaStandards.SurfaceMaterial(MaterialFolder, SceneName + "_door", DoorCol);
 
             // Room centres along X (rooms 1,2,3), corridor centred on the origin.
-            float x1 = -RoomLen, x2 = 0f, x3 = RoomLen;    // room centres
+            float x1 = -RoomLen;                           // room 1's centre; 2 and 3 sit at 0 and +RoomLen
             float d12 = -RoomLen / 2f, d23 = RoomLen / 2f; // divider X (between 1&2, 2&3)
             float halfX = RoomLen * 1.5f;                  // corridor half-length
             float halfZ = RoomWide / 2f;

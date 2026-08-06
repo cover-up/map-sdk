@@ -28,7 +28,7 @@ open it in Unity 6000.5, and you're ready to author — skip the manual setup be
 **Manual — add to your own URP project.** In `Packages/manifest.json`:
 
 ```json
-"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.8.1"
+"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.9.0"
 ```
 
 (Your project must be URP on Unity 6000.5. If you have no URP asset yet, create one via
@@ -39,5 +39,7 @@ Assets → Create → Rendering → URP Asset and assign it under Project Settin
 See **[Documentation~/MapCreatorGuide.md](Documentation~/MapCreatorGuide.md)** (bundled in this
 repo) for the full author → Validate → Export → Sandbox-test → Publish loop. In short:
 **Cover Up! → Maps → Create Example Sized Map**, edit it, **Validate Map**, **Export Workshop Map**.
-Exports land in your Local maps folder — `~/CoverUpMaps/` on Linux/macOS, `Documents\CoverUpMaps\`
-on Windows — which the installed game reads in **Sandbox** for live testing.
+Exports land in your Local maps folder, `~/CoverUpMaps/local/` on Linux/macOS or
+`Documents\CoverUpMaps\local\` on Windows, which a non-Steam build of the game reads in
+**Sandbox** for live testing. To test in the Steam copy instead, copy the package folder into
+`live/` beside it; see the guide's *Where maps live*.

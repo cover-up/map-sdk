@@ -57,7 +57,7 @@ namespace CoverUp.Gameplay
         /// place an actual player.</summary>
         public static MapSpawnDisc FindInScene(Scene scene)
         {
-            foreach (MapSpawnDisc disc in FindObjectsByType<MapSpawnDisc>(FindObjectsSortMode.None))
+            foreach (MapSpawnDisc disc in FindObjectsByType<MapSpawnDisc>())
             {
                 if (disc.gameObject.scene == scene) return disc;
             }
@@ -75,7 +75,7 @@ namespace CoverUp.Gameplay
         public static MapSpawnDisc FindForRole(Scene scene, MapSpawnRole wanted)
         {
             List<MapSpawnDisc> exact = null, shared = null;
-            foreach (MapSpawnDisc disc in FindObjectsByType<MapSpawnDisc>(FindObjectsSortMode.None))
+            foreach (MapSpawnDisc disc in FindObjectsByType<MapSpawnDisc>())
             {
                 if (disc.gameObject.scene != scene) continue;
                 if (wanted != MapSpawnRole.Both && disc.role == wanted)

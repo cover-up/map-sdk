@@ -75,7 +75,7 @@ namespace CoverUp.Gameplay
         {
             if (_config != null) return _config;
             Scene scene = gameObject.scene;
-            foreach (MapConfig c in FindObjectsByType<MapConfig>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (MapConfig c in FindObjectsByType<MapConfig>(FindObjectsInactive.Include))
             {
                 if (c.gameObject.scene == scene) { _config = c; break; }
             }

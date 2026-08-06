@@ -14,15 +14,17 @@ namespace CoverUp.EditorTools
     ///     so equal lighting on body and surface is what makes a painted
     ///     patch read identical from any angle — a harsh sun/ambient ratio
     ///     re-introduces the shading mismatch we fixed in 2026-07.
-    ///     Since 2026-08-04 the rig also carries a dim FILL lamp from low
-    ///     opposite the sun, borrowed from the menu bløb's studio rig
-    ///     (CoverUp/PaintPreview): it models down- and back-faces the flat
-    ///     ambient leaves plate-flat, and because it only ADDS light where
-    ///     the sun reaches least it narrows the lit/unlit spread — it cannot
-    ///     re-introduce the mismatch above. The sun matches the studio key
-    ///     (0.78). The ambient LEVEL is still under evaluation against the
-    ///     menu look (0.55 vs 0.40 vs 0.30, dev console `stage`); 0.55 stays
-    ///     canonical until Pål ratifies a lower floor.
+    ///     RATIFIED 2026-08-05, and no longer under evaluation: sun 0.592 over
+    ///     flat ambient 0.699 sRGB, solved together against nine measured
+    ///     reference captures so the body's shadow side sits at 0.43 of its lit
+    ///     side. The old 0.78/0.55 pair put it at 0.252 and read grey. The fill
+    ///     lamp added 2026-08-04 is RETIRED to 0: the raised ambient does its job,
+    ///     and a directional fill from behind makes the shading ramp non-monotone,
+    ///     which no measured reference ramp is. See SunIntensity and FillIntensity
+    ///     below, Tools/blob-lab-unity/GAP-REPORT.md for the measurements, and the
+    ///     dev console `stage` command for live comparison.
+    ///  1b. Arena suns cast SOFT SHADOWS (SunShadows). Previously unassigned, so
+    ///     scripted arenas silently had none and no body was ever grounded.
     ///  2. Blendable surfaces use URP/Lit with a flat _BaseColor and a matte
     ///     finish (<see cref="SurfaceMaterial"/>). The eyedropper reads
     ///     _BaseColor (plus MaterialPropertyBlock recolors); custom shaders
@@ -39,9 +41,25 @@ namespace CoverUp.EditorTools
     /// </summary>
     public static class ArenaStandards
     {
-        public const float SunIntensity = 0.78f;
+        /// <summary>Sun and ambient are ONE solved pair, not two dials. They were
+        /// measured on 2026-08-05 against nine reference captures
+        /// (Tools/blob-lab/LOOK-SPEC-MEASURED.md, Tools/blob-lab-unity/GAP-REPORT.md)
+        /// and solved together so the body's shadow side lands at 0.43 of its lit
+        /// side, which is what the reference measures across five independent
+        /// same-body pairs. The previous 0.78/0.55 pair put it at 0.252, nearly
+        /// twice as dark, which is why an unpainted bløb read grey instead of white.
+        ///
+        /// Total irradiance on a sun-facing surface is unchanged to within 0.4%
+        /// (0.592 + 0.4468 = 1.0388 against the old 1.0433). This redistributes
+        /// light, it does not add any. Move ONE of them and you break the ratio the
+        /// character's whole look is built on: raising the sun to chase a brighter
+        /// peak widens exactly the failure this pair was solved to close.</summary>
+        public const float SunIntensity = 0.592f;
         public static readonly Quaternion SunRotation = Quaternion.Euler(50f, -30f, 0f);
-        public static readonly Color FlatAmbient = new Color(0.55f, 0.55f, 0.55f);
+
+        /// <summary>Flat ambient, sRGB 0.699 = linear 0.4468. See
+        /// <see cref="SunIntensity"/> — these two are solved as a pair.</summary>
+        public static readonly Color FlatAmbient = new Color(0.699f, 0.699f, 0.699f);
         public const float SurfaceSmoothness = 0.1f;
 
         /// <summary>How much the environment (in practice the skybox) reflects
@@ -58,12 +76,33 @@ namespace CoverUp.EditorTools
         /// contribution to surface shading is removed.</summary>
         public const float ReflectionIntensity = 0f;
 
-        /// <summary>The fill lamp, at the studio rig's key:fill ratio. Found BY
-        /// NAME by the retune below and by the game's `stage` console command,
-        /// so a fill must carry exactly this name — a second white directional
-        /// with any other name gets normalised to sun intensity instead.</summary>
+        /// <summary>The fill lamp, RETIRED 2026-08-05 (intensity 0), kept as a
+        /// named constant because existing scenes still carry the light and the
+        /// retune below has to find and silence it.
+        ///
+        /// It was added 2026-08-04 to model down- and back-faces that the ambient
+        /// floor left plate-flat. Raising the ambient to <see cref="FlatAmbient"/>
+        /// removed its reason to exist, and measurement removed its defence: every
+        /// shading ramp in the reference set is MONOTONE from lit to shadow, while
+        /// a directional fill from behind lifts the back face above the terminator
+        /// (0.406 against 0.252 on the old rig) and puts a second bright band on a
+        /// body that should only ever fall away. A hider whose back face is
+        /// brighter than their own terminator does not match the wall behind them.
+        ///
+        /// Found BY NAME by the retune below and by the game's `stage` console
+        /// command, so a fill must carry exactly this name — a second white
+        /// directional with any other name gets normalised to sun intensity.</summary>
         public const string FillLightName = "Fill Light";
-        public const float FillIntensity = 0.16f;
+        public const float FillIntensity = 0f;
+
+        /// <summary>Arena suns cast soft shadows. Previously never assigned at all,
+        /// so a scripted arena inherited AddComponent's default of None and no
+        /// character was ever grounded. The floor directly beneath a standing body
+        /// should read 0.25–0.38x the open floor; the reference measures 0.30x, and
+        /// it is the single strongest "there is a body here" cue in the whole
+        /// reference set. The URP asset already pays for main-light shadows, so the
+        /// marginal cost is casters, not a new feature.</summary>
+        public const LightShadows SunShadows = LightShadows.Soft;
 
         /// <summary>Where the fill aims, derived from the sun rather than a
         /// constant: low and opposite (sun yaw + 180°, pitched 15° upward), so a
@@ -83,8 +122,9 @@ namespace CoverUp.EditorTools
             light.type = LightType.Directional;
             light.intensity = SunIntensity;
             light.color = Color.white;
+            light.shadows = SunShadows;
             lightGo.transform.rotation = SunRotation;
-            BuildFill(light);
+            if (FillIntensity > 0f) BuildFill(light);
             ApplyAmbient();
             return light;
         }
@@ -104,14 +144,30 @@ namespace CoverUp.EditorTools
                 if (light.gameObject.name == FillLightName) { fill = light; continue; }
                 light.intensity = SunIntensity;
                 light.color = Color.white;
+                light.shadows = SunShadows;
                 if (sun == null) sun = light;
             }
-            if (sun != null && fill == null) fill = BuildFill(sun);
-            if (sun != null && fill != null)
+            // Fill retired: silence the lamp an older SDK left behind rather than
+            // deleting it, so a re-tuned scene diffs as one changed value and a map
+            // author who wants it back can still see where it was.
+            if (FillIntensity <= 0f)
             {
-                fill.intensity = FillIntensity;
-                fill.color = Color.white;
-                fill.transform.rotation = FillRotation(sun.transform.rotation);
+                if (fill != null)
+                {
+                    fill.intensity = 0f;
+                    fill.enabled = false;
+                }
+            }
+            else
+            {
+                if (sun != null && fill == null) fill = BuildFill(sun);
+                if (sun != null && fill != null)
+                {
+                    fill.enabled = true;
+                    fill.intensity = FillIntensity;
+                    fill.color = Color.white;
+                    fill.transform.rotation = FillRotation(sun.transform.rotation);
+                }
             }
             ApplyAmbient();
             // Menu-invoked retunes must be saveable; builders save right after
@@ -134,9 +190,21 @@ namespace CoverUp.EditorTools
 
         private static void ApplyAmbient()
         {
+            // Read the open scene's per-map tint (neutral if none). ArenaLighting
+            // holds the level and the clamp; the tint gives only hue/chroma so the
+            // ratified ambient level, and the lit:shadow ratio, stay fixed.
+            Color tint = OpenSceneAmbientTint();
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = FlatAmbient;
+            RenderSettings.ambientLight = CoverUp.MapSdk.ArenaLighting.TintedAmbient(tint);
+            RenderSettings.ambientIntensity = 1f;
             RenderSettings.reflectionIntensity = ReflectionIntensity;
+        }
+
+        private static Color OpenSceneAmbientTint()
+        {
+            foreach (var cfg in Object.FindObjectsByType<CoverUp.Gameplay.MapConfig>(FindObjectsSortMode.None))
+                if (cfg != null) return cfg.AmbientTint;
+            return Color.white;
         }
 
         /// <summary>The canonical blendable-surface material: URP/Lit, flat

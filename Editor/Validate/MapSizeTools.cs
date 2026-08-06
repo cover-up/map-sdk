@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Text;
 using CoverUp.Core;
 using CoverUp.Gameplay;
+using CoverUp.MapSdk;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -123,6 +124,7 @@ namespace CoverUp.EditorTools
             CheckReferenceDolls(scene, errors);
             CheckCamoShaders(scene, warnings);
             CheckEnvironmentReflections(scene, warnings);
+            CheckArenaEnvelope(scene, errors);
 
             // MapConfig is the single player-scale source; a gameplay map without
             // one runs at GameScale.Default (allowed, but usually a mistake).
@@ -328,6 +330,57 @@ namespace CoverUp.EditorTools
                 + "face (strongest at grazing angles). Hiders can't match that: the bløb has no environment "
                 + "reflections at all. Run Cover Up!/Maps/Apply Arena Lighting, or set Lighting ▸ Environment "
                 + "▸ Intensity Multiplier to 0. Your skybox stays visible as a backdrop either way.");
+        }
+
+        /// <summary>The bløb is measured and tuned against a fixed lighting envelope
+        /// (Tools/blob-lab-unity/GAP-REPORT.md). A map whose baked ambient/sun sit
+        /// outside it renders the character grey, blown out or off-white — and unlike
+        /// the reflection check this is an ERROR, because a warning is exactly what
+        /// let the skybox-reflection bug ship. The runtime clamp
+        /// (<see cref="CoverUp.MapSdk.ArenaLighting.NormalizeActiveScene"/>) is the
+        /// belt-and-braces for Workshop content; this is the belt for ours. Apply
+        /// Arena Lighting is the one-click fix. Active-scene only, like the
+        /// reflection check, since RenderSettings is per-active-scene.</summary>
+        private static void CheckArenaEnvelope(Scene scene, List<string> errors)
+        {
+            if (scene != SceneManager.GetActiveScene()) return;
+
+            if (RenderSettings.ambientMode != UnityEngine.Rendering.AmbientMode.Flat)
+            {
+                errors.Add("Ambient mode is not Flat — the arena contract is a flat ambient the bløb "
+                    + "was tuned against. Run Cover Up!/Maps/Apply Arena Lighting.");
+                return;
+            }
+
+            Color amb = RenderSettings.ambientLight;
+            float lin = 0.2126f * Mathf.GammaToLinearSpace(amb.r)
+                      + 0.7152f * Mathf.GammaToLinearSpace(amb.g)
+                      + 0.0722f * Mathf.GammaToLinearSpace(amb.b);
+            if (lin < ArenaLighting.AmbientLinMin || lin > ArenaLighting.AmbientLinMax)
+                errors.Add($"Flat ambient level is {lin:0.###} linear, outside the character envelope "
+                    + $"[{ArenaLighting.AmbientLinMin:0.###}, {ArenaLighting.AmbientLinMax:0.###}]. Below reads "
+                    + "grey, above washes out. The per-map ambient TINT is fine — the LEVEL is fixed. "
+                    + "Run Cover Up!/Maps/Apply Arena Lighting.");
+
+            Color.RGBToHSV(amb, out _, out float ambSat, out _);
+            if (ambSat > ArenaLighting.AmbientSatMax + 0.001f)
+                errors.Add($"Ambient tint saturation is {ambSat:0.##}, over the {ArenaLighting.AmbientSatMax:0.##} "
+                    + "hint ceiling — it would tint the bløb enough to read as a colour, not a hint. "
+                    + "Desaturate the MapConfig ambient tint, then Apply Arena Lighting.");
+
+            foreach (Light l in FindAllInScene<Light>(scene))
+            {
+                if (l == null || l.type != LightType.Directional || !l.enabled) continue;
+                if (l.intensity < ArenaLighting.SunIntensityMin || l.intensity > ArenaLighting.SunIntensityMax)
+                    errors.Add($"Directional light '{Path(l.transform)}' intensity {l.intensity:0.##} is outside "
+                        + $"the sun envelope [{ArenaLighting.SunIntensityMin:0.##}, {ArenaLighting.SunIntensityMax:0.##}]. "
+                        + "Run Cover Up!/Maps/Apply Arena Lighting.");
+                Color.RGBToHSV(l.color, out _, out float sunSat, out _);
+                if (sunSat > ArenaLighting.SunSatMax + 0.001f)
+                    errors.Add($"Directional light '{Path(l.transform)}' is too saturated ({sunSat:0.##} > "
+                        + $"{ArenaLighting.SunSatMax:0.##}) — a bounded-warm sun is fine, a coloured one lights the "
+                        + "bløb a hue no wall shares. Desaturate it toward white.");
+            }
         }
 
         private static void CheckReferenceDolls(Scene scene, List<string> errors)

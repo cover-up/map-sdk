@@ -32,6 +32,12 @@ namespace CoverUp.Gameplay
         public string scene;                     // scene name inside the bundle (informational)
         public WorkshopBundles bundles = new WorkshopBundles();
         public string preview = "preview.png";
+        /// <summary>Extra gallery images for the Workshop page, relative to the
+        /// package folder (<c>screenshots/01.png</c>…). Empty on a package exported
+        /// before this existed, and on one whose author assigned none. NOT a format
+        /// bump: an older reader ignores the field, and a newer reader sees an empty
+        /// array, which is exactly "this map has no gallery".</summary>
+        public string[] screenshots = Array.Empty<string>();
         // The Steam Workshop item id this package was last published to (as a
         // string to avoid any JSON ulong-precision doubt). Empty = never
         // published; set by the Publish tool so a re-publish updates the SAME
@@ -138,6 +144,25 @@ namespace CoverUp.Gameplay
             if (manifest == null || string.IsNullOrEmpty(manifest.preview)) return null;
             string path = ResolveInside(packageFolder, manifest.preview);
             return path != null && File.Exists(path) ? path : null;
+        }
+
+        /// <summary>Full paths to the package's gallery images, in manifest order,
+        /// skipping any that are missing or that try to escape the package folder.
+        /// Never null. Same containment guard as the bundle and the preview, for the
+        /// same reason: every one of these names comes out of a downloaded map.json.
+        /// </summary>
+        public static string[] ResolveScreenshots(string packageFolder, WorkshopMapManifest manifest = null)
+        {
+            manifest ??= Read(packageFolder);
+            if (manifest?.screenshots == null || manifest.screenshots.Length == 0)
+                return Array.Empty<string>();
+            var found = new System.Collections.Generic.List<string>(manifest.screenshots.Length);
+            for (int i = 0; i < manifest.screenshots.Length; i++)
+            {
+                string path = ResolveInside(packageFolder, manifest.screenshots[i]);
+                if (path != null && File.Exists(path)) found.Add(path);
+            }
+            return found.ToArray();
         }
 
         /// <summary>Combine <paramref name="folder"/> with a manifest-supplied

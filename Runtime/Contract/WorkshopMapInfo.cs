@@ -31,10 +31,20 @@ namespace CoverUp.Gameplay
         [Tooltip("Preview image (Workshop thumbnail + browser). Any texture; the exporter writes it out as preview.png.")]
         private Texture2D preview;
 
+        [SerializeField]
+        [Tooltip("Extra images for the Workshop page's gallery, beside the thumbnail. The exporter writes them into screenshots/ and the publisher uploads them as the item's preview images, replacing whatever was there.")]
+        private Texture2D[] screenshots = new Texture2D[0];
+
         public string MapId => mapId;
         public string Title => title;
         public string Description => description;
         public string[] Tags => tags ?? new string[0];
         public Texture2D Preview => preview;
+
+        /// <summary>The item page's gallery, as opposed to <see cref="Preview"/>,
+        /// which is the single thumbnail. Separate fields because Steam treats them
+        /// as different things: one <c>SetItemPreview</c>, N
+        /// <c>AddItemPreviewFile</c>.</summary>
+        public Texture2D[] Screenshots => screenshots ?? new Texture2D[0];
     }
 }

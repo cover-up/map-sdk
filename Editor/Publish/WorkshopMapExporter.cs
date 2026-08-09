@@ -95,6 +95,7 @@ namespace CoverUp.EditorTools
             string metaDescription = info != null ? info.Description : "";
             string[] metaTags = info != null ? info.Tags : Array.Empty<string>();
             Texture2D metaPreview = info != null ? info.Preview : null;
+            Texture2D[] metaScreenshots = info != null ? info.Screenshots : Array.Empty<Texture2D>();
 
             // The contract is read from scene components too (MapConfig, MapSizeVariants,
             // MapSpawnDisc), so it has to be snapshot HERE for the same reason — read
@@ -194,6 +195,7 @@ namespace CoverUp.EditorTools
             //    authored comes from the step-2 snapshots — `info` and every scene
             //    object are destroyed references by now (see the note there).
             string previewName = WritePreview(metaPreview, outDir);
+            string[] screenshotNames = WriteScreenshots(metaScreenshots, outDir);
             var manifest = new WorkshopMapManifest
             {
                 format = WorkshopMapManifest.CurrentFormat,
@@ -206,6 +208,7 @@ namespace CoverUp.EditorTools
                 scene = scene.name,
                 bundles = bundles,
                 preview = previewName,
+                screenshots = screenshotNames,
                 contract = contract,
                 // Measured before the build (the census) and during it (the bundle
                 // size), so nothing here reads a scene object that the build's
@@ -344,6 +347,56 @@ namespace CoverUp.EditorTools
                 return "preview.png";
             }
             catch (Exception e) { Debug.LogWarning("[CoverUp] Preview export failed: " + e.Message); return ""; }
+        }
+
+        /// <summary>The Workshop page's gallery images, written into
+        /// <c>screenshots/</c> beside the thumbnail. Same encode path and the same
+        /// 1 MB cap as the preview, because Steam applies the same rule to every
+        /// preview image it takes, and a gallery image that trips it fails the whole
+        /// submit with the same opaque InvalidParam.
+        ///
+        /// <para>Capped at <see cref="MaxScreenshots"/>. A cap that silently dropped
+        /// the rest would read as "everything uploaded", so the overflow is named in
+        /// the log.</para></summary>
+        private const int MaxScreenshots = 8;
+
+        private static string[] WriteScreenshots(Texture2D[] shots, string outDir)
+        {
+            if (shots == null || shots.Length == 0) return Array.Empty<string>();
+            if (shots.Length > MaxScreenshots)
+                Debug.LogWarning($"[CoverUp] {shots.Length} screenshots assigned; only the first "
+                    + $"{MaxScreenshots} are exported (WorkshopMapInfo.Screenshots).");
+
+            string dir = Path.Combine(outDir, "screenshots");
+            var names = new List<string>();
+            for (int i = 0; i < shots.Length && names.Count < MaxScreenshots; i++)
+            {
+                if (shots[i] == null) continue;   // an empty array slot is not an error
+                try
+                {
+                    byte[] png = EncodePreview(shots[i]);
+                    if (png == null || png.Length == 0)
+                    {
+                        Debug.LogWarning($"[CoverUp] Screenshot {i + 1} could not be encoded — skipped.");
+                        continue;
+                    }
+                    if (png.Length > MaxPreviewBytes)
+                        Debug.LogWarning($"[CoverUp] Screenshot {i + 1} is {png.Length / 1024} KB, over "
+                            + "Steam's 1 MB preview limit even after shrinking. The publish will likely "
+                            + "be rejected; assign a smaller image.");
+                    Directory.CreateDirectory(dir);
+                    // Forward slashes: this name goes into map.json, which is read on
+                    // both platforms, and Path.Combine on the reading side handles it.
+                    string name = $"screenshots/{names.Count + 1:00}.png";
+                    File.WriteAllBytes(Path.Combine(outDir, name), png);
+                    names.Add(name);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"[CoverUp] Screenshot {i + 1} export failed: {e.Message}");
+                }
+            }
+            return names.ToArray();
         }
 
         // Prefer the source PNG's own bytes: highest fidelity, and — crucially — no GPU.

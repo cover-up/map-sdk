@@ -5,6 +5,8 @@ All notable changes to the Cover Up! Map SDK. Format follows
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-08-10
+
 ### Added
 - **`FloatProofSurface`** — mark geometry the float globe cannot see. Being next to it is
   being next to nothing: gravity keeps applying, `SPACE` does not become a climb, and the
@@ -24,6 +26,35 @@ All notable changes to the Cover Up! Map SDK. Format follows
   surface still blocks feet. Honoured by the gun, by paint scatter, and by the `ray` console
   command (which reports the hit as `VOID`). Applied to the island hub's boundary ring and
   its floor guard.
+- **`MapWorldBox`** — the box a map is allowed to reach into, stated out loud at last:
+  **±256 m on every axis** from the map's own origin. Not art direction, it is the box
+  player positions can be TRANSMITTED in. A position outside it does not fail loudly, it
+  **clamps**, so a body walking past the edge freezes there on every screen but its owner's,
+  which gets reported as "desync" and investigated everywhere except the map. It lives in
+  the SDK, and the wire reads it from here rather than the other way round, because a map
+  project has the SDK and nothing else. The vertical figure was ±2048 m until proto 29, so
+  that one absolute range could cover both the maps and the hub 1500 m below it; that cost
+  63 mm of vertical precision, which stopped being affordable once a map could scale its
+  players down to 0.2 m.
+- **Validate Map: the world envelope.** Any spawn disc or bounds volume reaching outside
+  `MapWorldBox` is now an **export error** naming the offending object and how far out it
+  is. This was an unwritten rule, and the failure it produces is silent, remote-only and
+  nowhere near its cause.
+- **Validate Map: stacked roles.** When hunters spawn above hiders, a **warning** names any
+  solid surface between the two, since a hunter shooting down needs a `PassThroughSurface`
+  to shoot through. Found on the Diorama map, whose Large variant carried the marker on
+  three of its four decks: the map loads, walks and looks correct, and the only symptom is
+  that every shot in one room stops on glass you can see straight through. A warning rather
+  than a refusal on purpose, because a solid deck over a basement the hiders reach by stairs
+  is a legitimate map and this cannot tell the two designs apart. Checked geometrically
+  rather than by raycast, so the size variants that are switched OFF are covered too.
+
+### Changed
+- **The eyedropper trusts `CoverUp/PaintPreview`.** The look editor's body wears the studio
+  shader rather than either camo shader, so the sampler bailed out and fell through to the
+  lit screen pixel, baking the studio key light, rim and specular into what the player
+  thought was their own colour. Trusted on the same terms as the other two: albedo is
+  `_MainTex` × `_BaseColor` and finish is `_MetallicGlossMap`, under the standard names.
 
 ## [0.10.0] — 2026-08-06
 

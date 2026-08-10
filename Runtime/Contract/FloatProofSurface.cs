@@ -37,8 +37,9 @@ namespace CoverUp.Gameplay
     {
         /// <summary>True if this collider belongs to a surface the float ignores.
         /// One policy for the sense and for the lean cue, so the body can never
-        /// tilt toward a wall that is not holding it.</summary>
+        /// tilt toward a wall that is not holding it. Inactive parents count, for
+        /// the reason spelled out on <see cref="PassThroughSurface.Is"/>.</summary>
         public static bool Is(Collider collider) =>
-            collider != null && collider.GetComponentInParent<FloatProofSurface>() != null;
+            collider != null && collider.GetComponentInParent<FloatProofSurface>(true) != null;
     }
 }

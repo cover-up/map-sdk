@@ -30,8 +30,16 @@ namespace CoverUp.Gameplay
     {
         /// <summary>True if this collider belongs to a pass-through surface.
         /// One policy, shared by the gun and the camera, so the two can never
-        /// disagree about what a shot can cross.</summary>
+        /// disagree about what a shot can cross.
+        ///
+        /// INACTIVE PARENTS COUNT. The argless overload skips them, which is
+        /// invisible in play (an inactive ancestor disables the collider too, so
+        /// nothing ever raycasts one) but wrong everywhere else: Validate Map
+        /// inspects the size variants that are switched OFF, and read this as
+        /// "no marker" on every deck in them. The question here is what the
+        /// surface IS, which cannot depend on whether it happens to be switched
+        /// on right now.</summary>
         public static bool Is(Collider collider) =>
-            collider != null && collider.GetComponentInParent<PassThroughSurface>() != null;
+            collider != null && collider.GetComponentInParent<PassThroughSurface>(true) != null;
     }
 }

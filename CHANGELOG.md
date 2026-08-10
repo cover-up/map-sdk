@@ -5,6 +5,20 @@ All notable changes to the Cover Up! Map SDK. Format follows
 
 ## [Unreleased]
 
+## [0.11.1] — 2026-08-10
+
+### Fixed
+- **The stacked-roles check cried wolf on every switched-off size variant.** It named decks
+  that already carried a `PassThroughSurface`, which is the opposite of useful: the first map
+  it ran on reported three false positives and no true ones. `Is()` used
+  `GetComponentInParent<T>()`, and that overload skips inactive GameObjects. The check
+  collects colliders WITH the inactive ones, on purpose, since the variants worth checking
+  are the ones switched off, so the geometry saw those decks and the marker lookup could not.
+  All three collider markers (`PassThroughSurface`, `ShotVoidSurface`, `FloatProofSurface`)
+  now pass `includeInactive: true`. In play this changes nothing at all, because an inactive
+  ancestor disables the collider too and nothing ever raycasts one, but what a surface IS
+  cannot depend on whether it happens to be switched on right now.
+
 ## [0.11.0] — 2026-08-10
 
 ### Added

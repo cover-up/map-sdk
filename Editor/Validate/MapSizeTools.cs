@@ -178,6 +178,8 @@ namespace CoverUp.EditorTools
             }
 
             CheckBaseGrouping(scene, spawns, roots, errors, warnings);
+            CheckStackedRoles(scene, variants, roots, spawns, warnings);
+            CheckWireEnvelope(spawns, bounds, errors);
 
             if (variants == null)
             {
@@ -771,6 +773,189 @@ namespace CoverUp.EditorTools
             var sb = new StringBuilder(t.name);
             for (Transform p = t.parent; p != null; p = p.parent) sb.Insert(0, p.name + "/");
             return sb.ToString();
+        }
+
+        // ----------------------------------------------------- world envelope
+
+        /// <summary>
+        /// A map has to fit the box player positions can be TRANSMITTED in.
+        /// MoveState quantizes against ±<see cref="MapWorldBox.HalfExtentXZ"/> horizontally
+        /// and ±<see cref="MapWorldBox.HalfExtentY"/> vertically (of the map's own origin),
+        /// and a position outside that does not fail loudly — it CLAMPS, so a remote
+        /// body walking past the edge freezes at it while its owner keeps going.
+        ///
+        /// This was an unwritten rule until proto 29 tightened Y from ±2048 to ±256
+        /// to buy back the 8 mm precision small-scale maps need. Saying it out loud
+        /// costs nothing and turns a silent, remote-only, far-from-the-cause failure
+        /// into a line at export time.
+        /// </summary>
+        private static void CheckWireEnvelope(List<MapSpawnDisc> spawns,
+            List<MapBoundsVolume> bounds, List<string> errors)
+        {
+            foreach (MapSpawnDisc d in spawns) Check(d.transform.position, Path(d.transform));
+            foreach (MapBoundsVolume b in bounds)
+            {
+                Vector3 c = b.transform.position;
+                Vector3 e = b.transform.lossyScale * 0.5f;
+                Check(c + new Vector3(Mathf.Abs(e.x), Mathf.Abs(e.y), Mathf.Abs(e.z)), Path(b.transform));
+                Check(c - new Vector3(Mathf.Abs(e.x), Mathf.Abs(e.y), Mathf.Abs(e.z)), Path(b.transform));
+            }
+
+            void Check(Vector3 p, string path)
+            {
+                if (Mathf.Abs(p.x) <= MapWorldBox.HalfExtentXZ && Mathf.Abs(p.z) <= MapWorldBox.HalfExtentXZ
+                    && Mathf.Abs(p.y) <= MapWorldBox.HalfExtentY) return;
+                errors.Add($"'{path}' reaches ({p.x:0.#}, {p.y:0.#}, {p.z:0.#}), outside the " +
+                    $"±{MapWorldBox.HalfExtentXZ:0} m horizontal / ±{MapWorldBox.HalfExtentY:0} m vertical box " +
+                    "that player positions are sent in. Players out there stop moving on everyone " +
+                    "else's screen. Move the map back toward its origin.");
+            }
+        }
+
+        // ------------------------------------------------- stacked-role floors
+
+        /// <summary>
+        /// The vertically stacked map's one hard requirement: if hunters spawn ABOVE
+        /// hiders, whatever they are standing on has to be shootable through.
+        ///
+        /// Diorama is the shape this guards. Hunters walk a transparent deck and shoot
+        /// down at 0.2 m hiders on the drawings below, which only works because the deck
+        /// carries a PassThroughSurface. Playtest 2026-08-09 found the Large variant's
+        /// middle deck without one: the marker had been added to three of the map's four
+        /// decks and missed on the fourth, and nothing anywhere said so — the map loads,
+        /// walks and looks correct, and the only symptom is that every shot in that one
+        /// room stops on glass you can see straight through.
+        ///
+        /// It is a WARNING and not an export refusal on purpose. A hunter deck with a
+        /// solid floor and a basement the hiders reach by stairs is a legitimate map, and
+        /// there the floor is meant to stop shots. This cannot tell the two designs
+        /// apart, so it names the surface and the author decides.
+        ///
+        /// Checked per size, geometrically rather than by raycast: the whole point is to
+        /// catch the variant that is switched OFF in the open scene, which has no live
+        /// colliders to cast against.
+        /// </summary>
+        private static void CheckStackedRoles(Scene scene, MapSizeVariants variants,
+            List<Transform> roots, List<MapSpawnDisc> spawns, List<string> warnings)
+        {
+            var named = new HashSet<string>();   // one line per surface, not per size
+            var colliders = new List<Collider>();
+            foreach (GameObject root in scene.GetRootGameObjects())
+                colliders.AddRange(root.GetComponentsInChildren<Collider>(true));
+
+            if (variants == null)
+            {
+                CheckStackedRolesIn(null, roots, spawns, colliders, named, warnings);
+                return;
+            }
+            foreach (MapSize s in AllSizes)
+            {
+                GameObject r = variants.Root(s);
+                if (r != null) CheckStackedRolesIn(r.transform, roots, spawns, colliders, named, warnings);
+            }
+        }
+
+        // One size's world: everything under its own size root, plus everything that
+        // is under no size root at all (Base). `sizeRoot` null means a one-size map.
+        private static void CheckStackedRolesIn(Transform sizeRoot, List<Transform> roots,
+            List<MapSpawnDisc> spawns, List<Collider> colliders, HashSet<string> named,
+            List<string> warnings)
+        {
+            float lowestHider = float.MaxValue;
+            var hunterDiscs = new List<MapSpawnDisc>();
+            foreach (MapSpawnDisc d in spawns)
+            {
+                if (!InSizeScope(d.transform, sizeRoot, roots)) continue;
+                if (d.Role == MapSpawnRole.Hiders || d.Role == MapSpawnRole.Both)
+                    lowestHider = Mathf.Min(lowestHider, d.transform.position.y);
+                if (d.Role == MapSpawnRole.Hunters) hunterDiscs.Add(d);
+            }
+            if (hunterDiscs.Count == 0 || lowestHider == float.MaxValue) return;
+
+            foreach (MapSpawnDisc hunter in hunterDiscs)
+            {
+                Vector3 at = hunter.transform.position;
+                // A metre of clearance, so a deck and a floor at the same height (one
+                // room, both roles on it) is never read as a stack.
+                if (lowestHider > at.y - 1f) continue;
+
+                foreach (Collider c in colliders)
+                {
+                    if (c == null || !InSizeScope(c.transform, sizeRoot, roots)) continue;
+                    if (c.isTrigger || PassThroughSurface.Is(c)) continue;
+                    if (!TryWorldBounds(c, out Bounds b)) continue;
+                    // Strictly between the two roles, and under where the hunter lands.
+                    if (b.max.y >= at.y || b.max.y <= lowestHider) continue;
+                    if (at.x < b.min.x || at.x > b.max.x || at.z < b.min.z || at.z > b.max.z) continue;
+
+                    string path = Path(c.transform);
+                    if (!named.Add(path)) continue;
+                    warnings.Add($"'{path}' sits between the hunter spawn '{Path(hunter.transform)}' " +
+                        $"and the hiders {at.y - lowestHider:0.#} m below it, and is solid to shots. " +
+                        "If hunters are meant to shoot down through it, add a PassThroughSurface " +
+                        "component to it (feet still stand on it; shots and the camera boom cross it).");
+                }
+            }
+        }
+
+        /// <summary>Is this transform part of <paramref name="sizeRoot"/>'s world?
+        /// Its own subtree, or the shared Base (under no size root at all).</summary>
+        private static bool InSizeScope(Transform t, Transform sizeRoot, List<Transform> roots)
+        {
+            foreach (Transform r in roots)
+            {
+                if (r == null || !t.IsChildOf(r)) continue;
+                return sizeRoot != null && r == sizeRoot;
+            }
+            return true; // Base: shared by every size
+        }
+
+        /// <summary>World AABB from the collider's own shape and transform, NOT from
+        /// <see cref="Collider.bounds"/>: the variants worth checking are the ones
+        /// switched off, and an inactive collider's bounds read as empty.</summary>
+        private static bool TryWorldBounds(Collider c, out Bounds bounds)
+        {
+            bounds = default;
+            Vector3 center;
+            Vector3 size;
+            switch (c)
+            {
+                case BoxCollider box:
+                    center = box.center;
+                    size = box.size;
+                    break;
+                case SphereCollider sphere:
+                    center = sphere.center;
+                    size = Vector3.one * (sphere.radius * 2f);
+                    break;
+                case CapsuleCollider capsule:
+                    center = capsule.center;
+                    float d = capsule.radius * 2f;
+                    size = capsule.direction == 0 ? new Vector3(capsule.height, d, d)
+                        : capsule.direction == 1 ? new Vector3(d, capsule.height, d)
+                        : new Vector3(d, d, capsule.height);
+                    break;
+                case MeshCollider mesh when mesh.sharedMesh != null:
+                    center = mesh.sharedMesh.bounds.center;
+                    size = mesh.sharedMesh.bounds.size;
+                    break;
+                default:
+                    return false;
+            }
+
+            Matrix4x4 m = c.transform.localToWorldMatrix;
+            Vector3 h = size * 0.5f;
+            var world = new Bounds(m.MultiplyPoint3x4(center), Vector3.zero);
+            for (int i = 0; i < 8; i++)
+            {
+                var corner = new Vector3(
+                    center.x + ((i & 1) == 0 ? -h.x : h.x),
+                    center.y + ((i & 2) == 0 ? -h.y : h.y),
+                    center.z + ((i & 4) == 0 ? -h.z : h.z));
+                world.Encapsulate(m.MultiplyPoint3x4(corner));
+            }
+            bounds = world;
+            return true;
         }
 
         private static void WarnNearGuardRails(string role, float scale, List<string> warnings)

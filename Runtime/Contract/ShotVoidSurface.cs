@@ -40,8 +40,9 @@ namespace CoverUp.Gameplay
     {
         /// <summary>True if this collider belongs to a shot-swallowing surface.
         /// One policy for the gun and for paint scatter, so the two can never
-        /// disagree about where a shot ended.</summary>
+        /// disagree about where a shot ended. Inactive parents count, for the
+        /// reason spelled out on <see cref="PassThroughSurface.Is"/>.</summary>
         public static bool Is(Collider collider) =>
-            collider != null && collider.GetComponentInParent<ShotVoidSurface>() != null;
+            collider != null && collider.GetComponentInParent<ShotVoidSurface>(true) != null;
     }
 }

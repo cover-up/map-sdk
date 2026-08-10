@@ -5,6 +5,26 @@ All notable changes to the Cover Up! Map SDK. Format follows
 
 ## [Unreleased]
 
+### Added
+- **`FloatProofSurface`** — mark geometry the float globe cannot see. Being next to it is
+  being next to nothing: gravity keeps applying, `SPACE` does not become a climb, and the
+  lean cue does not tip the body toward it. For out-of-bounds walls again, and for the same
+  root cause: the float is the only way up a vertical face, it holds you against anything
+  solid, and it has **no height ceiling**, so an invisible wall was a ladder over itself.
+  Walking, jumping and collision are untouched, the surface is still solid. Height remains
+  the author's problem: a float-proof wall short enough to jump is still a wall you can
+  jump. Applied to the island hub's boundary ring and its floor guard.
+- **`ShotVoidSurface`** — mark geometry that SWALLOWS shots. A shot that reaches it stops
+  there and counts as a clean miss: no impact splash, no permanent mark, and nothing behind
+  it can be hit, because the shot never gets past. For out-of-bounds walls, which are
+  invisible by nature, so a shot fired at the horizon used to stop on a wall nobody can see
+  and hang permanent paint in mid-air. Neither existing marker covers it: `PassThroughSurface`
+  lets the shot carry on and paint whatever is behind the wall, and `PaintProofSurface`
+  refuses the mark but still bursts paint against thin air. Movement is unaffected, the
+  surface still blocks feet. Honoured by the gun, by paint scatter, and by the `ray` console
+  command (which reports the hit as `VOID`). Applied to the island hub's boundary ring and
+  its floor guard.
+
 ## [0.10.0] — 2026-08-06
 
 ### Changed

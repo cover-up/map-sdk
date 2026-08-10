@@ -62,6 +62,16 @@ namespace CoverUp.Gameplay
             // in its own header: same property names, so the eyedropper keeps working.
             "CoverUp/BlobCamo",
             "CoverUp/BlobGroundMatch",
+            // The look editor's body wears the STUDIO shader rather than either of
+            // those, and leaving it out made the eyedropper look broken on the one
+            // screen whose entire subject is the paint (2026-08-09): the sampler
+            // bailed here, so it never read the body, never lit its ghost ring, and
+            // fell through to the lit screen pixel — the studio key light, rim and
+            // specular baked into what the player thought was their own colour.
+            // Trusted on the same terms as the two above: albedo is _MainTex ×
+            // _BaseColor and finish is _MetallicGlossMap under the standard names,
+            // which is exactly what the sampler reconstructs.
+            "CoverUp/PaintPreview",
         };
 
         /// <summary>True when the eyedropper may treat this shader's declared albedo

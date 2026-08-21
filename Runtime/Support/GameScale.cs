@@ -55,6 +55,13 @@ namespace CoverUp.Core
         /// <summary>Doll-to-world scale for hunters.</summary>
         public static float Hunter { get; private set; } = Default;
 
+        /// <summary>The hub's own doll scale — what a body standing on the island
+        /// wears, whatever role it happens to hold. Kept apart from the two role
+        /// scales because the map's scales land session-wide at door-open (the host
+        /// validates every peer against them) while a held-back hunter is still
+        /// standing in the hub for the whole hide.</summary>
+        public static float Hub { get; private set; } = Default;
+
         // Which role the player at THIS keyboard is playing. One bool, written in
         // exactly three places (hub entry, map-scale apply, round-start role
         // assignment) so Local can never disagree with the role the match thinks
@@ -62,13 +69,29 @@ namespace CoverUp.Core
         // where both scales are the same value anyway.
         private static bool _localIsHunter;
 
+        // Is the local body in a loaded map, or standing in the hub? THE ruling
+        // (Pål, 2026-08-10): the hub is neutral ground, so a role only takes
+        // effect on your body and your view at the instant you arrive in the map,
+        // never when it is dealt. Defaults true — "no hub override" — so tools and
+        // tests that never enter a hub read exactly as they always have.
+        private static bool _localInMap = true;
+
         /// <summary>The local player's own scale. Use this for anything sized or
         /// positioned for the player at this keyboard — it saves every such site
-        /// having to reach into netcode to re-derive the role.</summary>
-        public static float Local => _localIsHunter ? Hunter : Hider;
+        /// having to reach into netcode to re-derive the role. Resolves to
+        /// <see cref="Hub"/> while the body is on the island, so a hunter held
+        /// there through the hide keeps hub size and hub movement feel.</summary>
+        public static float Local => !_localInMap ? Hub : _localIsHunter ? Hunter : Hider;
 
-        /// <summary>True when the local player is playing hunter.</summary>
+        /// <summary>True when the local player is playing hunter. Ask
+        /// <see cref="LocalInMap"/> too before applying anything the role does TO
+        /// the player: this stays true for a hunter waiting out the hide in the hub.</summary>
         public static bool LocalIsHunter => _localIsHunter;
+
+        /// <summary>True when the local body is in a loaded map rather than the hub.
+        /// The gate for role-driven handling — forced camera, scale, prank effects,
+        /// the shot counter — none of which may touch a body on neutral ground.</summary>
+        public static bool LocalInMap => _localInMap;
 
         /// <summary>Apply a map's per-role player scales, each clamped to a sane
         /// range.</summary>
@@ -79,20 +102,33 @@ namespace CoverUp.Core
         }
 
         /// <summary>Both roles at one value — the hub, and any single-scale
-        /// caller (tests, tools) that has no roles to distinguish.</summary>
-        public static void SetUniformScale(float scale) => SetPlayerScales(scale, scale);
+        /// caller (tests, tools) that has no roles to distinguish. Sets
+        /// <see cref="Hub"/> to the same value: hub entry is the one caller that
+        /// matters, and a tool with no roles has no hub to disagree with.</summary>
+        public static void SetUniformScale(float scale)
+        {
+            SetPlayerScales(scale, scale);
+            Hub = Clamp(scale);
+        }
 
         /// <summary>Point <see cref="Local"/> at the role this client is playing.
         /// Call it wherever the local role is assigned or re-assigned; a stale
         /// value renders the local player at the other role's size.</summary>
         public static void SetLocalRoleHunter(bool isHunter) => _localIsHunter = isHunter;
 
+        /// <summary>Say where the local body is. Flip it in the SAME frame as the
+        /// move — the arrival is the switch — and re-seat the doll afterwards, or
+        /// the body wears the wrong scale until something else happens to refresh it.</summary>
+        public static void SetLocalInMap(bool inMap) => _localInMap = inMap;
+
         /// <summary>Restore the built-in defaults (e.g. leaving a map).</summary>
         public static void ResetToDefault()
         {
             Hider = Default;
             Hunter = Default;
+            Hub = Default;
             _localIsHunter = false;
+            _localInMap = true;
         }
 
         public static float Clamp(float scale) =>

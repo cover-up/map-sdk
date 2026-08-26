@@ -127,7 +127,13 @@ namespace CoverUp.EditorTools
                 for (int i = 0; i < deps.Length; i++)
                 {
                     string path = deps[i];
-                    if (path.EndsWith(".cs") || path.EndsWith(".shader")) continue;
+                    // .unity: GetDependencies returns the scene itself, and a scene is
+                    // not an asset file — LoadAllAssetsAtPath reads scene objects off
+                    // the loading thread, so Unity logs "Do not use ReadObjectThreaded
+                    // on scene objects!" once per object and buries the report. Nothing
+                    // is lost by skipping it: the scene file holds no runtime asset
+                    // memory, and everything in it that does is in the dependency set.
+                    if (path.EndsWith(".cs") || path.EndsWith(".shader") || path.EndsWith(".unity")) continue;
                     if (showProgress && EditorUtility.DisplayCancelableProgressBar(
                             "Map Size Report", path, i / (float)deps.Length))
                     {

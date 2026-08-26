@@ -72,6 +72,15 @@ namespace CoverUp.Gameplay
             // _BaseColor and finish is _MetallicGlossMap under the standard names,
             // which is exactly what the sampler reconstructs.
             "CoverUp/PaintPreview",
+            // Frosted glass, on its own stated terms. Its header spells out the
+            // contract: _BaseColor and the _Smoothness/_Metallic floats are the only
+            // sampler-visible properties precisely so eyedropping a pane returns the
+            // frost tint at the material's stated finish, "never the blurred scene
+            // behind it". Omitting it here broke that promise in the one way it was
+            // written to prevent, since the fallback screen sample IS the blurred
+            // scene. Same omission as PaintPreview above, found the same way: Validate
+            // Map warned on a map whose glass is authored to be eyedropped.
+            "CoverUp/FrostedGlass",
         };
 
         /// <summary>True when the eyedropper may treat this shader's declared albedo

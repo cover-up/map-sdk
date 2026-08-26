@@ -5,6 +5,24 @@ All notable changes to the Cover Up! Map SDK. Format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Validate Map buried its own report under Unity warnings.** The memory measurement walked
+  the scene's dependency set and called `LoadAllAssetsAtPath` on every entry, but
+  `GetDependencies` returns the scene itself, and a scene is not an asset file: Unity logged
+  "Do not use ReadObjectThreaded on scene objects!" once per object in the map, so the
+  errors and warnings the author actually needed were scrolled off the console. `.unity`
+  now joins `.cs` and `.shader` in the skip list. The measured total is unaffected, since a
+  scene file holds no runtime asset memory and everything in it that does is measured
+  through its dependencies.
+- **The eyedropper didn't trust `CoverUp/FrostedGlass`.** The shader's header states the
+  contract in as many words: `_BaseColor` and the `_Smoothness`/`_Metallic` floats are its
+  only sampler-visible properties, so eyedropping a pane returns the frost tint at the
+  material's stated finish, *never the blurred scene behind it*. Leaving it out of
+  `CamoShaderPolicy` broke that in exactly the way it was written to prevent, because the
+  fallback path samples the rendered screen pixel, which for a frosted pane is the blurred
+  scene. Same omission as `CoverUp/PaintPreview` in 0.11.0, found the same way: Validate Map
+  warning on a map whose glass is authored to be camouflaged against.
+
 ## [0.11.1] — 2026-08-10
 
 ### Fixed

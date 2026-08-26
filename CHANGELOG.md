@@ -5,6 +5,24 @@ All notable changes to the Cover Up! Map SDK. Format follows
 
 ## [Unreleased]
 
+## [0.11.2] — 2026-08-26
+
+### Added
+- **`GameScale.Hub` and `GameScale.LocalInMap`** — the hub is neutral ground. A map's
+  scales land session-wide the moment the door opens, and the host validates every peer
+  against them, but a hunter held back through the hide is still standing in the hub the
+  whole time. So the hub keeps its own doll scale, apart from the two role scales, and
+  `GameScale.Local` resolves to it while the body is on the island. The ruling (Pål,
+  2026-08-10): a role only takes effect on your body and your view at the instant you
+  arrive in the map, never when it is dealt. `LocalInMap` is the gate for everything a
+  role does *to* a player — forced camera, scale, prank effects, the shot counter — none
+  of which may touch a body on neutral ground. `SetLocalInMap(bool)` says where the body
+  is; flip it in the same frame as the move and re-seat the doll after, or the body wears
+  the wrong scale until something else refreshes it. It defaults to true, meaning "no hub
+  override", so tools and tests that never enter a hub read exactly as they always have.
+  `SetUniformScale` now sets `Hub` too, since hub entry is the one caller that matters and
+  a tool with no roles has no hub to disagree with.
+
 ### Fixed
 - **Validate Map buried its own report under Unity warnings.** The memory measurement walked
   the scene's dependency set and called `LoadAllAssetsAtPath` on every entry, but

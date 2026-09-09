@@ -3,7 +3,7 @@
 All notable changes to the Cover Up! Map SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this package uses semantic versioning.
 
-## [Unreleased]
+## [0.12.1] — 2026-09-09
 
 ### Changed
 - **Real Size measures against the world's up by default.** The 0.12.0 window measured in

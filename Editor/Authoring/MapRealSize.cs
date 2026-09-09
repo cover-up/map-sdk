@@ -7,14 +7,27 @@ using UnityEngine;
 
 namespace CoverUp.EditorTools
 {
-    /// <summary>Which extent of an object a real-world size refers to, in the object's
-    /// OWN axes: height is its up, whatever way it is lying in the scene.</summary>
+    /// <summary>Which extent of an object a real-world size refers to.</summary>
     public enum RealSizeAxis : byte
     {
         Height = 0,
         Width = 1,
         Depth = 2,
         Longest = 3,
+    }
+
+    /// <summary>
+    /// Which frame a size is measured in. <see cref="World"/> is the default: height is
+    /// the scene's up, the way the mapper sees the object. <see cref="Object"/> is the
+    /// root's own axes, for a prop deliberately laid on its side whose upright height
+    /// should still read. The first version measured in object axes only, and a Z-up
+    /// photoscan stood up by a -90° root rotation then reported its nose-to-tail length
+    /// as "height" (the lion of canvas-chaos, 2026-09-09).
+    /// </summary>
+    public enum RealSizeFrame : byte
+    {
+        World = 0,
+        Object = 1,
     }
 
     /// <summary>
@@ -30,11 +43,9 @@ namespace CoverUp.EditorTools
     /// once. This does the three things they would otherwise do by hand: measure what the
     /// object currently is, do the division, and remember the answer.
     ///
-    /// Measurement is in the root's own axes, so a statue that arrived lying on its side
-    /// still reports its upright height rather than the height of the pile it makes on
-    /// the floor. It counts everything rendered under the root, plinth included; fit a
-    /// child to size the figure alone. The fit is always UNIFORM: a scan's proportions
-    /// are the one thing about its size that IS right.
+    /// It counts everything rendered under the root, plinth included; fit a child to size
+    /// the figure alone. The fit is always UNIFORM: a scan's proportions are the one
+    /// thing about its size that IS right.
     ///
     /// UI lives in <see cref="MapRealSizeWindow"/>; Validate Map uses
     /// <see cref="TryWorldBounds"/> to flag imports that plainly never got this.
@@ -60,15 +71,17 @@ namespace CoverUp.EditorTools
             return true;
         }
 
-        /// <summary>Size of everything rendered under <paramref name="root"/>, in metres,
-        /// along the root's own axes: x is width, y is height, z is depth. False when
-        /// nothing under it renders.</summary>
-        public static bool TryMeasure(Transform root, out Vector3 size)
+        /// <summary>Size of everything rendered under <paramref name="root"/>, in metres:
+        /// x is width, y is height, z is depth, in the chosen <paramref name="frame"/>.
+        /// False when nothing under it renders.</summary>
+        public static bool TryMeasure(Transform root, RealSizeFrame frame, out Vector3 size)
         {
             size = Vector3.zero;
             if (root == null) return false;
 
-            Quaternion toRoot = Quaternion.Inverse(root.rotation);
+            Quaternion toFrame = frame == RealSizeFrame.Object
+                ? Quaternion.Inverse(root.rotation)
+                : Quaternion.identity;
             Vector3 origin = root.position;
             var local = new Bounds();
             bool any = false;
@@ -79,7 +92,7 @@ namespace CoverUp.EditorTools
                 if (!Counts(r) || !TryCorners(r, corners)) continue;
                 for (int i = 0; i < 8; i++)
                 {
-                    Vector3 p = toRoot * (corners[i] - origin);
+                    Vector3 p = toFrame * (corners[i] - origin);
                     if (!any) { local = new Bounds(p, Vector3.zero); any = true; }
                     else local.Encapsulate(p);
                 }
@@ -103,11 +116,12 @@ namespace CoverUp.EditorTools
         }
 
         /// <summary>Scale <paramref name="root"/> uniformly so its extent along
-        /// <paramref name="axis"/> becomes <paramref name="metres"/>. Undoable. Returns the
-        /// factor applied, or 0 when there was nothing to measure or nothing to do.</summary>
-        public static float Fit(Transform root, RealSizeAxis axis, float metres)
+        /// <paramref name="axis"/>, measured in <paramref name="frame"/>, becomes
+        /// <paramref name="metres"/>. Undoable. Returns the factor applied, or 0 when there
+        /// was nothing to measure or nothing to do.</summary>
+        public static float Fit(Transform root, RealSizeAxis axis, float metres, RealSizeFrame frame)
         {
-            if (root == null || metres <= 0f || !TryMeasure(root, out Vector3 size)) return 0f;
+            if (root == null || metres <= 0f || !TryMeasure(root, frame, out Vector3 size)) return 0f;
             float current = Extent(size, axis);
             if (current <= 1e-5f) return 0f;
 
@@ -121,6 +135,75 @@ namespace CoverUp.EditorTools
             if (root.gameObject.scene.IsValid())
                 EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
             return k;
+        }
+
+        /// <summary>Degrees between the root's own up and the world's: 0 for an upright
+        /// root, about 90 for a Z-up scan stood up by rotating its root.</summary>
+        public static float TiltDegrees(Transform root) =>
+            root == null ? 0f : Vector3.Angle(root.up, Vector3.up);
+
+        /// <summary>
+        /// Move a root's tilt into its children, so the root's own up becomes the world's
+        /// up while NOTHING moves on screen. Yaw is kept: a statue turned 30° in the room
+        /// stays turned 30°. After this, Object and World measurements agree on height,
+        /// physics and any tool that trusts the root's up read the object the way it looks,
+        /// and the -90° import fix stops living on the root.
+        ///
+        /// Refuses a root with nothing under it to carry the rotation (a mesh sitting on
+        /// the root itself needs an empty parent first), and a root or ancestor with
+        /// non-uniform scale, which would skew the children when the root turns.
+        /// </summary>
+        public static bool TryMakeUpright(Transform root, out string problem)
+        {
+            problem = null;
+            if (root == null) { problem = "Nothing selected."; return false; }
+            if (TiltDegrees(root) < 0.01f)
+            {
+                problem = $"'{root.name}' is already upright.";
+                return false;
+            }
+            if (root.childCount == 0)
+            {
+                problem = $"'{root.name}' has nothing under it to carry the rotation: its mesh sits on " +
+                          "the root itself. Put it under an empty parent and make that upright instead.";
+                return false;
+            }
+            if (!IsUniform(root.localScale) || (root.parent != null && !IsUniform(root.parent.lossyScale)))
+            {
+                problem = $"'{root.name}' or a parent has non-uniform scale, which would skew its children " +
+                          "when the root turns. Make the scale uniform first.";
+                return false;
+            }
+
+            // The new frame: world up, and the yaw the root already has. Forward is the
+            // root's forward flattened onto the floor; when that is vertical (the classic
+            // -90° X fix points forward straight up), the flattened right decides instead.
+            Vector3 fwd = Flat(root.forward);
+            if (fwd.sqrMagnitude < 1e-6f) fwd = Vector3.Cross(Flat(root.right), Vector3.up);
+            if (fwd.sqrMagnitude < 1e-6f) fwd = Vector3.forward;
+            Quaternion upright = Quaternion.LookRotation(fwd.normalized, Vector3.up);
+
+            int n = root.childCount;
+            var recorded = new List<Object>(n + 1) { root };
+            var pos = new Vector3[n];
+            var rot = new Quaternion[n];
+            for (int i = 0; i < n; i++)
+            {
+                Transform c = root.GetChild(i);
+                recorded.Add(c);
+                pos[i] = c.position;
+                rot[i] = c.rotation;
+            }
+            Undo.RecordObjects(recorded.ToArray(), "Make Upright");
+
+            root.rotation = upright;
+            for (int i = 0; i < n; i++) root.GetChild(i).SetPositionAndRotation(pos[i], rot[i]);
+
+            if (PrefabUtility.IsPartOfPrefabInstance(root))
+                foreach (Object o in recorded) PrefabUtility.RecordPrefabInstancePropertyModifications(o);
+            if (root.gameObject.scene.IsValid())
+                EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
+            return true;
         }
 
         /// <summary>
@@ -240,6 +323,11 @@ namespace CoverUp.EditorTools
             for (int i = 1; i < 8; i++) bounds.Encapsulate(corners[i]);
             return true;
         }
+
+        private static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
+
+        private static bool IsUniform(Vector3 s) =>
+            Mathf.Abs(s.x - s.y) < 1e-4f && Mathf.Abs(s.y - s.z) < 1e-4f;
 
         private static void EnsureFolder(string folder)
         {

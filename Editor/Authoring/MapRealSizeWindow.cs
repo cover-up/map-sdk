@@ -19,6 +19,7 @@ namespace CoverUp.EditorTools
     {
         private const string PrefTarget = "CoverUp.MapRealSize.Target";
         private const string PrefAxis = "CoverUp.MapRealSize.Axis";
+        private const string PrefFrame = "CoverUp.MapRealSize.Frame";
         private const int MaxRows = 8;
 
         // Fills the field, nothing more. Real-world sizes a mapper reaches for while
@@ -33,6 +34,7 @@ namespace CoverUp.EditorTools
 
         private float _target = 2f;
         private RealSizeAxis _axis = RealSizeAxis.Height;
+        private RealSizeFrame _frame = RealSizeFrame.World;
         private string _lastResult;
         private MessageType _lastResultType = MessageType.Info;
 
@@ -40,7 +42,7 @@ namespace CoverUp.EditorTools
         private static void Open()
         {
             var w = GetWindow<MapRealSizeWindow>("Real Size");
-            w.minSize = new Vector2(320f, 320f);
+            w.minSize = new Vector2(320f, 360f);
             w.Show();
         }
 
@@ -48,11 +50,19 @@ namespace CoverUp.EditorTools
         {
             _target = EditorPrefs.GetFloat(PrefTarget, 2f);
             _axis = (RealSizeAxis)EditorPrefs.GetInt(PrefAxis, (int)RealSizeAxis.Height);
+            _frame = (RealSizeFrame)EditorPrefs.GetInt(PrefFrame, (int)RealSizeFrame.World);
             Undo.undoRedoPerformed += Repaint;
         }
 
         private void OnDisable() => Undo.undoRedoPerformed -= Repaint;
-        private void OnSelectionChange() => Repaint();
+
+        // A result belongs to the object it was about; a new selection starts clean.
+        private void OnSelectionChange()
+        {
+            _lastResult = null;
+            Repaint();
+        }
+
         private void OnHierarchyChange() => Repaint();
         // Transform edits in the Inspector don't raise a hierarchy change; a 10 Hz
         // repaint keeps the readout honest while someone drags a scale handle.
@@ -71,12 +81,15 @@ namespace CoverUp.EditorTools
             _target = EditorGUILayout.FloatField(new GUIContent("Real size (m)",
                 "What the object measures in real life, in metres."), _target);
             _axis = (RealSizeAxis)EditorGUILayout.EnumPopup(new GUIContent("Refers to",
-                "Which extent that number is. Height is the object's own up axis, whatever way " +
-                "it is lying in the scene."), _axis);
+                "Which extent that number is."), _axis);
+            _frame = (RealSizeFrame)EditorGUILayout.EnumPopup(new GUIContent("Axes",
+                "World: height is the scene's up, the way you see the object (default). " +
+                "Object: the root's own axes, for a prop deliberately laid on its side."), _frame);
             if (EditorGUI.EndChangeCheck())
             {
                 EditorPrefs.SetFloat(PrefTarget, _target);
                 EditorPrefs.SetInt(PrefAxis, (int)_axis);
+                EditorPrefs.SetInt(PrefFrame, (int)_frame);
             }
 
             EditorGUILayout.BeginHorizontal();
@@ -101,6 +114,11 @@ namespace CoverUp.EditorTools
                         "Write the fitted object out as a variant beside its source asset, so every " +
                         "future drag-in is already this size. Re-saving an existing variant updates it.")))
                     Save(roots);
+                if (GUILayout.Button(new GUIContent("Make upright",
+                        "Move the root's tilt into its children so its own up becomes the world's up. " +
+                        "Nothing moves on screen and any yaw is kept; the -90° import fix just stops " +
+                        "living on the root, so Object and World axes agree from then on.")))
+                    Upright(roots);
             }
 
             if (!string.IsNullOrEmpty(_lastResult))
@@ -108,9 +126,9 @@ namespace CoverUp.EditorTools
 
             EditorGUILayout.Space();
             EditorGUILayout.HelpBox(
-                "Height is the object's own up axis. Everything rendered under the selection " +
-                "counts, plinth included; select a child to fit the figure alone. The fit is always " +
-                "uniform, so proportions never change. Ctrl+Z undoes it.",
+                "Height is the scene's up unless Axes is Object. Everything rendered under the " +
+                "selection counts, plinth included; select a child to fit the figure alone. The fit " +
+                "is always uniform, so proportions never change. Ctrl+Z undoes everything here.",
                 MessageType.None);
         }
 
@@ -143,9 +161,12 @@ namespace CoverUp.EditorTools
                 EditorStyles.miniLabel);
         }
 
-        private static void DrawReadout(Transform[] roots)
+        private void DrawReadout(Transform[] roots)
         {
-            EditorGUILayout.LabelField("Selected, as it stands now", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(
+                _frame == RealSizeFrame.World ? "Selected, as it stands now (world axes)"
+                                              : "Selected, in its own axes",
+                EditorStyles.boldLabel);
             if (roots.Length == 0)
             {
                 EditorGUILayout.HelpBox("Select an object in the scene to measure it.", MessageType.Info);
@@ -160,9 +181,14 @@ namespace CoverUp.EditorTools
                     EditorGUILayout.LabelField($"… and {roots.Length - MaxRows} more");
                     break;
                 }
-                string line = MapRealSize.TryMeasure(root, out Vector3 s)
+                string line = MapRealSize.TryMeasure(root, _frame, out Vector3 s)
                     ? $"W {s.x:0.00}   H {s.y:0.00}   D {s.z:0.00} m"
                     : "nothing rendered under it";
+                // A tilted root is the one case where the two frames disagree, so say so
+                // on the row itself rather than leaving the mapper to spot a -90 in the
+                // Inspector.
+                float tilt = MapRealSize.TiltDegrees(root);
+                if (tilt > 0.5f) line += $"   · root tilted {tilt:0}°";
                 EditorGUILayout.LabelField(root.name, line);
             }
         }
@@ -173,8 +199,8 @@ namespace CoverUp.EditorTools
             int fitted = 0;
             foreach (Transform root in roots)
             {
-                bool measured = MapRealSize.TryMeasure(root, out Vector3 before);
-                float k = MapRealSize.Fit(root, _axis, _target);
+                bool measured = MapRealSize.TryMeasure(root, _frame, out Vector3 before);
+                float k = MapRealSize.Fit(root, _axis, _target, _frame);
                 if (k <= 0f)
                 {
                     sb.AppendLine(measured
@@ -186,27 +212,48 @@ namespace CoverUp.EditorTools
                 float was = MapRealSize.Extent(before, _axis);
                 sb.AppendLine($"{root.name}: {_axis} {was:0.00} → {_target:0.00} m  (×{k:0.###})");
             }
-            _lastResult = sb.ToString().TrimEnd();
-            _lastResultType = fitted > 0 ? MessageType.Info : MessageType.Warning;
-            Debug.Log("Real Size\n" + _lastResult);
+            Report(sb, fitted > 0);
         }
 
         private void Save(Transform[] roots)
         {
             var sb = new StringBuilder();
-            bool anyProblem = false;
+            bool ok = true;
             foreach (Transform root in roots)
             {
                 if (MapRealSize.TrySaveAsPrefab(root.gameObject, out string path, out string problem))
                     sb.AppendLine($"{root.name} → {path}");
                 else
                 {
-                    anyProblem = true;
+                    ok = false;
                     sb.AppendLine(problem);
                 }
             }
+            Report(sb, ok);
+        }
+
+        private void Upright(Transform[] roots)
+        {
+            var sb = new StringBuilder();
+            bool ok = true;
+            foreach (Transform root in roots)
+            {
+                float tilt = MapRealSize.TiltDegrees(root);
+                if (MapRealSize.TryMakeUpright(root, out string problem))
+                    sb.AppendLine($"{root.name}: {tilt:0}° tilt moved into its children, nothing moved on screen.");
+                else
+                {
+                    ok = false;
+                    sb.AppendLine(problem);
+                }
+            }
+            Report(sb, ok);
+        }
+
+        private void Report(StringBuilder sb, bool ok)
+        {
             _lastResult = sb.ToString().TrimEnd();
-            _lastResultType = anyProblem ? MessageType.Warning : MessageType.Info;
+            _lastResultType = ok ? MessageType.Info : MessageType.Warning;
             Debug.Log("Real Size\n" + _lastResult);
         }
     }

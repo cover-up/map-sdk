@@ -3,6 +3,22 @@
 All notable changes to the Cover Up! Map SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this package uses semantic versioning.
 
+## [Unreleased]
+
+### Changed
+- **Real Size measures against the world's up by default.** The 0.12.0 window measured in
+  the root's own axes, so a Z-up photoscan stood up by a -90° root rotation reported its
+  nose-to-tail length as "height" (the lion of canvas-chaos). A new **Axes** choice keeps
+  *Object* for a prop deliberately on its side, and the readout marks a tilted root.
+
+### Added
+- **Make upright** in Real Size: moves a root's tilt into its children so its own up
+  becomes the world's, keeping yaw, with nothing moving on screen. Refuses a mesh-on-root
+  object and non-uniform scale rather than skewing anything.
+
+### Fixed
+- Real Size's result line no longer outlives the selection it was about.
+
 ## [0.12.0] — 2026-09-09
 
 ### Added

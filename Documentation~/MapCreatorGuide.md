@@ -282,16 +282,20 @@ once, and **Cover Up! → Maps → Real Size** does the rest:
 
 - Select an object. The window shows what it currently measures, width × height × depth
   in metres, with your map's hider and hunter heights beside it for comparison.
-- Type its real size, say `2.5`, and press **Fit**. Height means the object's *own* up
-  axis, so a statue that arrived lying on its side still fits upright. The fit is always
-  uniform, so proportions never change, and Ctrl+Z undoes it. **Refers to** switches the
-  number to width, depth or the longest side, and the yardstick buttons fill in common
-  sizes.
+- Type its real size, say `2.5`, and press **Fit**. Height is the scene's up, the way
+  you see the object, so a Z-up scan that was stood up by turning its root reads as it
+  looks. Switch **Axes** to *Object* for a prop deliberately laid on its side, to fit its
+  upright height. The fit is always uniform, so proportions never change, and Ctrl+Z
+  undoes it. **Refers to** switches the number to width, depth or the longest side, and
+  the yardstick buttons fill in common sizes.
 - Everything rendered under the selection counts, plinth included. Select a child to fit
   the figure alone.
 - **Save as prefab variant** writes the fitted object out beside its source asset as
   `<name>_RealSize`, so every future drag-in is already that size. It works the same for
   FBX and glTF, and re-saving an instance of the variant updates it in place.
+- **Make upright** moves a tilted root's rotation into its children, so the root's own up
+  becomes the world's while nothing moves on screen and any yaw is kept. The readout says
+  `root tilted 90°` when this applies; afterwards both axis modes agree.
 
 **Validate Map** warns about anything over 20 m tall or under 1 cm in every direction,
 which is what an import in the wrong unit looks like.

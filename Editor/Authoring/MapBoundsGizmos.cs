@@ -5,8 +5,9 @@ using UnityEngine;
 namespace CoverUp.EditorTools
 {
     /// <summary>
-    /// Editor-wide show/hide for the keep-in bounds gizmos — a checkable
-    /// menu item so the orange boxes can get out of the way while
+    /// Editor-wide show/hide for the bounds-family gizmos: the orange keep-in
+    /// boxes and the red/blue/grey keep-out boxes (MapKeepOutVolume reads the
+    /// same flag). A checkable menu item so they can get out of the way while
     /// decorating. Display only: enforcement never turns off.
     /// </summary>
     public static class MapBoundsGizmos

@@ -1,3 +1,4 @@
+using CoverUp.Core;
 using CoverUp.Gameplay;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -7,8 +8,8 @@ using UnityEngine.SceneManagement;
 namespace CoverUp.EditorTools
 {
     /// <summary>
-    /// The text half of a <see cref="MapReferenceDoll"/>: "Hider — 1.60 m" floating at
-    /// the doll's head. Lives here rather than in the component because
+    /// The text half of a <see cref="MapReferenceDoll"/>: "Hider — 1.60 m (1.19 × 1.35 m)"
+    /// floating at the doll's head, the height and the arithmetic that produced it. Lives here rather than in the component because
     /// <see cref="Handles"/> is editor-only API, while the silhouette itself is plain
     /// <c>Gizmos</c> drawing the runtime component can do. Colour comes from the doll so
     /// label and silhouette can't drift apart.
@@ -28,7 +29,12 @@ namespace CoverUp.EditorTools
             style.normal.textColor = doll.RoleColor;
 
             Vector3 at = doll.transform.position + doll.transform.rotation * new Vector3(0f, h * 1.06f, 0f);
-            Handles.Label(at, $"{doll.Role} — {h:0.00} m", style);
+            // Show the arithmetic, not just the answer: the MapConfig slider is a ratio
+            // on the authored body, and "0.4 means 0.54 m" is not obvious until it is
+            // written out in place.
+            float scale = h / GameScale.AuthoredBodyMeters;
+            Handles.Label(at,
+                $"{doll.Role} — {h:0.00} m ({scale:0.00} × {GameScale.AuthoredBodyMeters:0.00} m)", style);
         }
 
         [MenuItem("Cover Up!/Maps/Add Reference Dolls")]

@@ -25,7 +25,8 @@ namespace CoverUp.EditorTools
     ///   _CoverUpMap            [MapConfig, MapSizeVariants, WorkshopMapInfo]
     ///   ├── Base
     ///   │   ├── Fixtures        spawn disc + the arena sun — the map breaks without these
-    ///   │   └── Content         floor, outer + divider walls (your geometry goes here)
+    ///   │   └── Content         floor, outer + divider walls, a painting behind a velvet
+    ///   │                       rope (a Hunters MapKeepOutVolume); your geometry goes here
     ///   ├── Sizes
     ///   │   ├── Small           Bounds(room 1)      + Door 1↔2
     ///   │   ├── Medium          Bounds(rooms 1–2)   + Door 2↔3
@@ -65,9 +66,20 @@ namespace CoverUp.EditorTools
         private const float BoundsInset = 0.2f; // keep the volume flush inside the walls
         private const float BoundsY = 5.5f, BoundsH = 13f; // seals the airspace above the walls
 
+        // The painting on room 1's north wall and the velvet rope in front of it:
+        // the gallery case MapKeepOutVolume exists for. Hiders walk up to the
+        // canvas and blend into it; seekers are held RopeDepth off the wall, where
+        // a bløb on a flat picture still reads as part of the picture. The rope
+        // runs RopeMargin past each edge so the wall cannot be sighted along from
+        // the side either, and as tall as the bounds so nobody floats over it.
+        private const float PaintingW = 4f, PaintingH = 2.5f, PaintingT = 0.1f, PaintingY = 2f;
+        private const float RopeDepth = 3f;
+        private const float RopeMargin = 2f;
+
         private static readonly Color FloorCol = new Color(0.62f, 0.60f, 0.58f);
         private static readonly Color WallCol = new Color(0.70f, 0.72f, 0.75f);
         private static readonly Color DoorCol = new Color(0.80f, 0.45f, 0.30f); // stands out: "this is the door"
+        private static readonly Color PaintingCol = new Color(0.25f, 0.42f, 0.58f); // a canvas, not a wall
 
         // Headless entry: -executeMethod CoverUp.EditorTools.ExampleSizedMapBuilder.Run
         public static void Run()
@@ -95,6 +107,7 @@ namespace CoverUp.EditorTools
             Material floorMat = ArenaStandards.SurfaceMaterial(MaterialFolder, SceneName + "_floor", FloorCol);
             Material wallMat = ArenaStandards.SurfaceMaterial(MaterialFolder, SceneName + "_wall", WallCol);
             Material doorMat = ArenaStandards.SurfaceMaterial(MaterialFolder, SceneName + "_door", DoorCol);
+            Material paintingMat = ArenaStandards.SurfaceMaterial(MaterialFolder, SceneName + "_painting", PaintingCol);
 
             // Room centres along X (rooms 1,2,3), corridor centred on the origin.
             float x1 = -RoomLen;                           // room 1's centre; 2 and 3 sit at 0 and +RoomLen
@@ -146,6 +159,20 @@ namespace CoverUp.EditorTools
             // per-size doors plug. Segment length = (RoomWide - DoorGap) / 2.
             DividerWithGap(content, "Divider_1", d12, wallMat);
             DividerWithGap(content, "Divider_2", d23, wallMat);
+
+            // A painting on room 1's north wall, and the velvet rope that keeps the
+            // seekers off it. Room 1 exists at every size, so both live in Base; the
+            // rope is Content, not a fixture, since the map still loads without it.
+            // The volume's default already keeps out Hunters. It is sealed to the
+            // bounds' ceiling and sits clear of both spawn discs (they reach z = 2.5,
+            // the rope starts at 2.8), so Validate Map stays green.
+            float wallInnerZ = halfZ - WallT / 2f;
+            Surface(content, "Painting", new Vector3(x1, PaintingY, wallInnerZ - PaintingT / 2f),
+                new Vector3(PaintingW, PaintingH, PaintingT), paintingMat, true);
+            var rope = Child(content, "Rope_Painting");
+            rope.localPosition = new Vector3(x1, BoundsY, wallInnerZ - RopeDepth / 2f);
+            rope.localScale = new Vector3(PaintingW + 2f * RopeMargin, BoundsH, RopeDepth);
+            rope.gameObject.AddComponent<MapKeepOutVolume>();
 
             // Spawns sit in room 1 — Small always contains it, so they stay in Base
             // (under Fixtures: losing one is how a map stops being able to place a side).

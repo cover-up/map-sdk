@@ -125,6 +125,7 @@ namespace CoverUp.EditorTools
             CheckCamoShaders(scene, warnings);
             CheckEnvironmentReflections(scene, warnings);
             CheckArenaEnvelope(scene, errors);
+            CheckOddSizes(scene, warnings);
 
             // MapConfig is the single player-scale source; a gameplay map without
             // one runs at GameScale.Default (allowed, but usually a mistake).
@@ -163,6 +164,7 @@ namespace CoverUp.EditorTools
             MapSizeVariants variants = MapSizeVariants.FindInScene(scene);
             var spawns = FindAllInScene<MapSpawnDisc>(scene);
             var bounds = FindAllInScene<MapBoundsVolume>(scene);
+            var keepOuts = FindAllInScene<MapKeepOutVolume>(scene);
 
             // Size roots, hoisted out of the sized-map branch below: the grouping
             // checks need to know which objects are size roots (they belong under
@@ -187,6 +189,7 @@ namespace CoverUp.EditorTools
                 // else to be, so they're fixtures like the spawn — said as a
                 // warning, since a volume under Content still clamps correctly.
                 ReportSpawnCoverage(spawns, errors);
+                CheckKeepOuts("on this map", spawns, keepOuts, bounds, errors, warnings);
                 if (bounds.Count == 0)
                     warnings.Add("No MapBoundsVolume — players are not kept inside the map.");
                 Transform oneSizeFixtures = MapContract.FindChild(
@@ -222,6 +225,7 @@ namespace CoverUp.EditorTools
             // Large more landing spots than Small. Both coverage and containment are
             // therefore judged PER SIZE, against the set of discs actually active there.
             ReportSpawnCoveragePerSize(spawns, variants, roots, bounds, errors);
+            CheckKeepOutsPerSize(spawns, keepOuts, variants, roots, bounds, errors, warnings);
 
             // A size root with no bounds of its own is almost always an authoring
             // slip (that size would fall back to whatever volumes happen to be
@@ -666,14 +670,14 @@ namespace CoverUp.EditorTools
         /// at that size, and exactly what FindForRole sees once the inactive roots are
         /// switched off.
         /// </summary>
-        private static List<MapSpawnDisc> LiveAtSize(
-            List<MapSpawnDisc> spawns, List<Transform> roots, Transform own)
+        private static List<T> LiveAtSize<T>(
+            List<T> items, List<Transform> roots, Transform own) where T : Component
         {
-            var live = new List<MapSpawnDisc>();
-            foreach (MapSpawnDisc sp in spawns)
+            var live = new List<T>();
+            foreach (T item in items)
             {
-                bool scopedToThisSize = own != null && sp.transform.IsChildOf(own);
-                if (scopedToThisSize || !InsideAnyRoot(sp.transform, roots)) live.Add(sp);
+                bool scopedToThisSize = own != null && item.transform.IsChildOf(own);
+                if (scopedToThisSize || !InsideAnyRoot(item.transform, roots)) live.Add(item);
             }
             return live;
         }
@@ -773,6 +777,105 @@ namespace CoverUp.EditorTools
             var sb = new StringBuilder(t.name);
             for (Transform p = t.parent; p != null; p = p.parent) sb.Insert(0, p.name + "/");
             return sb.ToString();
+        }
+
+        // ------------------------------------------------------------ keep-outs
+
+        /// <summary>
+        /// Keep-out volumes, judged per size like the spawns. A keep-out in Base is
+        /// live at every size and one in a size root at that size only, the same
+        /// table as the discs, and a disc is only ever tested against the volumes
+        /// live where the disc is. Two questions per volume: does anyone LAND
+        /// inside a box that holds their own side back (an error: they are shoved
+        /// out on their first frame; a disc that merely straddles the face lands
+        /// some of them inside, which is the warning), and does the box sit
+        /// anywhere the bounds let players go at all (a keep-out entirely outside
+        /// the bounds union keeps nobody out, which is almost always a box meant
+        /// for another size).
+        /// </summary>
+        private static void CheckKeepOutsPerSize(List<MapSpawnDisc> spawns, List<MapKeepOutVolume> keepOuts,
+            MapSizeVariants variants, List<Transform> roots, List<MapBoundsVolume> bounds,
+            List<string> errors, List<string> warnings)
+        {
+            if (keepOuts.Count == 0) return;
+            foreach (MapSize size in AllSizes)
+            {
+                GameObject r = variants.Root(size);
+                if (r == null) continue;
+                Transform own = r.transform;
+                var sizeBounds = new List<MapBoundsVolume>();
+                foreach (MapBoundsVolume b in bounds)
+                    if (b.transform.IsChildOf(own)) sizeBounds.Add(b);
+                CheckKeepOuts($"at size '{size}'", LiveAtSize(spawns, roots, own), LiveAtSize(keepOuts, roots, own),
+                    sizeBounds, errors, warnings);
+            }
+        }
+
+        private static void CheckKeepOuts(string where, List<MapSpawnDisc> spawns, List<MapKeepOutVolume> keepOuts,
+            List<MapBoundsVolume> bounds, List<string> errors, List<string> warnings)
+        {
+            foreach (MapKeepOutVolume k in keepOuts)
+            {
+                string kPath = Path(k.transform);
+                foreach (MapSpawnDisc sp in spawns)
+                {
+                    if (!k.Applies(sp.Role)) continue;
+                    if (InsideVolume(sp.transform.position, k.transform))
+                    {
+                        errors.Add($"MapSpawnDisc '{Path(sp.transform)}' (Role = {sp.Role}) lands inside " +
+                            $"MapKeepOutVolume '{kPath}' (keeps out {k.KeepsOut}) {where}: players landing " +
+                            "there are pushed straight out. Move the disc, or shrink the volume.");
+                        continue;
+                    }
+                    if (DiscRimTouches(sp, k.transform))
+                        warnings.Add($"MapSpawnDisc '{Path(sp.transform)}' (Role = {sp.Role}) reaches into " +
+                            $"MapKeepOutVolume '{kPath}' (keeps out {k.KeepsOut}) {where}: some of the players " +
+                            "landing there start with a shove. Intended?");
+                }
+
+                if (bounds.Count == 0) continue;   // no containment there; already warned about elsewhere
+                bool reaches = false;
+                foreach (Vector3 probe in VolumeProbePoints(k.transform))
+                    if (InsideBounds(probe, bounds)) { reaches = true; break; }
+                // The other way round too: a keep-out big enough to swallow a whole
+                // bounds box has all its own probes outside and still overlaps everything.
+                foreach (MapBoundsVolume b in bounds)
+                    if (reaches || InsideVolume(b.transform.position, k.transform)) { reaches = true; break; }
+                if (!reaches)
+                    warnings.Add($"MapKeepOutVolume '{kPath}' lies entirely outside the bounds {where}: " +
+                        "it keeps nobody out there. Meant for a different size?");
+            }
+        }
+
+        // Strictly inside one unit-cube volume, the same test the runtime push uses.
+        private static bool InsideVolume(Vector3 p, Transform volume)
+        {
+            Vector3 local = volume.InverseTransformPoint(p);
+            return Mathf.Abs(local.x) < 0.5f && Mathf.Abs(local.y) < 0.5f && Mathf.Abs(local.z) < 0.5f;
+        }
+
+        // Eight points around the disc's rim at the disc's own height. The radius
+        // is the disc's private authoring field, read the way its inspector does.
+        private static bool DiscRimTouches(MapSpawnDisc disc, Transform volume)
+        {
+            float radius = new SerializedObject(disc).FindProperty("radius").floatValue;
+            Vector3 c = disc.transform.position;
+            for (int i = 0; i < 8; i++)
+            {
+                float a = i * Mathf.PI / 4f;
+                if (InsideVolume(c + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * radius, volume)) return true;
+            }
+            return false;
+        }
+
+        // The centre and the eight corners: enough to tell "entirely elsewhere"
+        // from "overlaps the playable space somewhere".
+        private static IEnumerable<Vector3> VolumeProbePoints(Transform volume)
+        {
+            yield return volume.position;
+            for (int i = 0; i < 8; i++)
+                yield return volume.TransformPoint(new Vector3(
+                    (i & 1) == 0 ? -0.5f : 0.5f, (i & 2) == 0 ? -0.5f : 0.5f, (i & 4) == 0 ? -0.5f : 0.5f));
         }
 
         // ----------------------------------------------------- world envelope
@@ -956,6 +1059,42 @@ namespace CoverUp.EditorTools
             }
             bounds = world;
             return true;
+        }
+
+        // An import that arrived in the wrong unit is either enormous or invisible, and
+        // both are easy to miss in a scene: a kilometre statue reads as "the sky went
+        // grey", a millimetre one as a speck. Two loose thresholds (nothing in a room is
+        // 20 m tall; nothing a mapper places is under a centimetre in every direction)
+        // catch the plain cases. The fix is one number in Real Size (MapRealSize).
+        private const float OddTallMeters = 20f;
+        private const float OddTinyMeters = 0.01f;
+
+        private static void CheckOddSizes(Scene scene, List<string> warnings)
+        {
+            var tall = new List<string>();
+            var tiny = new List<string>();
+            foreach (Renderer r in FindAllInScene<Renderer>(scene))
+            {
+                if (!MapRealSize.Counts(r) || !MapRealSize.TryWorldBounds(r, out Bounds b)) continue;
+                Vector3 s = b.size;
+                if (s.y > OddTallMeters) tall.Add($"'{Path(r.transform)}' ({s.y:0.#} m tall)");
+                else if (Mathf.Max(s.x, Mathf.Max(s.y, s.z)) < OddTinyMeters) tiny.Add($"'{Path(r.transform)}'");
+            }
+            if (tall.Count > 0)
+                warnings.Add($"{tall.Count} object(s) over {OddTallMeters:0} m tall, usually an import that " +
+                    $"arrived in the wrong unit: {Summarise(tall)}. Cover Up!/Maps/Real Size fits one to its " +
+                    "real height.");
+            if (tiny.Count > 0)
+                warnings.Add($"{tiny.Count} object(s) under {OddTinyMeters * 100f:0} cm in every direction, " +
+                    $"usually an import that arrived in the wrong unit or a stray: {Summarise(tiny)}. " +
+                    "Cover Up!/Maps/Real Size fits one to its real size.");
+        }
+
+        private static string Summarise(List<string> names)
+        {
+            const int max = 6;
+            if (names.Count <= max) return string.Join(", ", names);
+            return string.Join(", ", names.GetRange(0, max)) + $" and {names.Count - max} more";
         }
 
         private static void WarnNearGuardRails(string role, float scale, List<string> warnings)

@@ -147,6 +147,8 @@ there, moving nothing out of the scene and deleting nothing.
 - **`MapSizeVariants`** (optional) — small/medium/large variants of the same map;
   smaller sizes *add* doors/boundaries. Bounds volumes live **only** inside the size
   roots, never in `Base`. On a one-size map they belong in `Base/Fixtures`.
+- **`MapKeepOutVolume`** (optional): a velvet rope, a box that one side may not enter. See
+  **Velvet ropes: keeping one side out** below.
 - **`WorkshopMapInfo`** — title, description, tags, preview image (read into
   `map.json` on export). See **Your preview image** below — it's the whole card players
   see, and you can't publish without one.
@@ -196,6 +198,45 @@ and every disc live at that size must sit inside *that size's* bounds. A shared 
 "must be inside the smallest bounds" rule, now actually enforced and reported with the
 name of the size that breaks.
 
+### Velvet ropes: keeping one side out
+
+A `MapKeepOutVolume` is a box one side may not enter. The other side walks through it as if
+it were not there. Shape it like a bounds volume (move, rotate and scale the object; the box
+*is* the transform) and set **Keeps Out** to `Hunters` (the default), `Hiders`, or
+`Everyone`.
+
+The case it was built for is an art gallery. Hiders blend into the paintings, and a bløb on
+a flat canvas is given away the moment a hunter looks at it from a steep angle. A keep-out
+three metres deep in front of each picture, run a couple of metres past each edge, holds
+the hunters where the silhouette still reads as part of the painting, while the hiders walk
+up to the canvas and onto it. The example map has one: `Rope_Painting` in room 1, in front
+of the `Painting` slab on the north wall.
+
+What a rope does and does not do:
+
+- **Feet only.** Shots and sight pass, the camera passes, the float cannot hold on to it,
+  and exposure scoring never sees it. A hider inside a rope zone can still be found from
+  where the hunter stands. A pocket sealed off with a slit to peek through is a camping
+  spot; that is your call, but make it deliberately.
+- **A wall you brush along.** Walking into a rope slides you along its face instead of
+  bouncing you off, and running at it full tilt does not carry you through.
+- **Build it floor to ceiling.** It is a volume, not a floor: a hunter who jumps onto a low
+  one hovers on its roof instead of standing on it. Make it as tall as your bounds, the way
+  the example does.
+- **Nobody is sent back to spawn.** A hider converted to hunter inside a rope zone (Infection)
+  comes out through the nearest face, right where they are.
+- **Sizes.** A keep-out in `Base` is live at every size; one under `Sizes/Small` (or Medium,
+  Large) at that size only. Same table as the spawn discs. Unlike the bounds, `Base` is a
+  fine place for one: a rope is subtracted from the playable space, not added to it.
+
+Gizmos: red holds back hunters, blue holds back hiders, dark grey holds back everyone. The
+**Show Bounds Volumes** toggle hides them together with the orange bounds.
+
+Validate Map errors on a spawn disc whose centre sits inside a keep-out that holds its own
+side back (players landing there are shoved out on their first frame), warns when a disc's
+rim reaches into one, and warns on a keep-out that lies entirely outside a size's bounds,
+where it keeps nobody out.
+
 ### The hunter's camera
 
 `MapConfig ▸ Hunter Camera` decides which camera the hunter plays your map in, because the
@@ -230,6 +271,30 @@ nothing that exists outside the editor — and their group is tagged `EditorOnly
 export strips it. Validate Map errors if that tag ever goes missing. Place them as freely
 as you like: they're exempt from the `Base`/`Fixtures`/`Content` rules, and Group Base
 leaves them alone.
+
+### Real size
+
+Assets don't agree on how big a metre is. An FBX carries a unit tag and Unity honours it,
+so a model built at real size arrives at real size; a glTF has no unit tag at all, and a
+photoscan simply dumps whatever the scanner used, so one statue drags in at 70 cm and the
+next at two kilometres. No file can tell you what the thing really measures. You can,
+once, and **Cover Up! → Maps → Real Size** does the rest:
+
+- Select an object. The window shows what it currently measures, width × height × depth
+  in metres, with your map's hider and hunter heights beside it for comparison.
+- Type its real size, say `2.5`, and press **Fit**. Height means the object's *own* up
+  axis, so a statue that arrived lying on its side still fits upright. The fit is always
+  uniform, so proportions never change, and Ctrl+Z undoes it. **Refers to** switches the
+  number to width, depth or the longest side, and the yardstick buttons fill in common
+  sizes.
+- Everything rendered under the selection counts, plinth included. Select a child to fit
+  the figure alone.
+- **Save as prefab variant** writes the fitted object out beside its source asset as
+  `<name>_RealSize`, so every future drag-in is already that size. It works the same for
+  FBX and glTF, and re-saving an instance of the variant updates it in place.
+
+**Validate Map** warns about anything over 20 m tall or under 1 cm in every direction,
+which is what an import in the wrong unit looks like.
 
 ### Mirrors
 
@@ -280,7 +345,7 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.11.2"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.12.0"`.
    (By default both the game and the SDK use `~/CoverUpMaps` (Linux/macOS) or
    `Documents\CoverUpMaps` (Windows), with the SDK exporting into its `local/`
    subfolder, so no path setup is needed. To relocate, see *Changing the folder* above.)

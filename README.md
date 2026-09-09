@@ -3,11 +3,11 @@
 The authoring SDK for **Cover Up!** custom maps. Add it to a bare URP Unity project and you get
 everything needed to build a map and export it as a Workshop package the shipping game loads:
 
-- The `_CoverUpMap` authoring components — `MapConfig`, `MapSizeVariants`, `MapBoundsVolume`,
-  `CamouflageSurface`, `MapSpawnDisc`, `WorkshopMapInfo` — plus the map-size + player-scale
-  contract (`MapSize`, `GameScale`).
+- The `_CoverUpMap` authoring components: `MapConfig`, `MapSizeVariants`, `MapBoundsVolume`,
+  `MapKeepOutVolume`, `CamouflageSurface`, `MapSpawnDisc`, `WorkshopMapInfo`, plus the map-size and
+  player-scale contract (`MapSize`, `GameScale`).
 - Editor tooling under **Cover Up! → Maps**: *Create Example Sized Map*, *Validate Map*,
-  *Preview Size*, *Show Bounds Volumes*, *Export Workshop Map*, *Auto-Export On Save*.
+  *Preview Size*, *Show Bounds Volumes*, *Real Size*, *Export Workshop Map*, *Auto-Export On Save*.
 
 The map bundle's component scripts bind to the game's classes **by identical GUIDs**, which is the
 whole reason this is a shared package: the game embeds it and every map project consumes it, so the
@@ -28,7 +28,7 @@ open it in Unity 6000.5, and you're ready to author — skip the manual setup be
 **Manual — add to your own URP project.** In `Packages/manifest.json`:
 
 ```json
-"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.11.2"
+"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.12.0"
 ```
 
 (Your project must be URP on Unity 6000.5. If you have no URP asset yet, create one via

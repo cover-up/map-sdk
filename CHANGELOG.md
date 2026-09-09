@@ -3,7 +3,39 @@
 All notable changes to the Cover Up! Map SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this package uses semantic versioning.
 
-## [Unreleased]
+## [0.12.0] — 2026-09-09
+
+### Added
+- **`MapKeepOutVolume`**, the velvet rope: a box one side may not enter, the mirror image
+  of `MapBoundsVolume`. Shape it with the transform, pick who it holds back (**Hunters**,
+  the default, **Hiders**, or **Everyone**), and the other side walks through it as if it
+  were not there. Built for the art-gallery map: hiders blend into the paintings, and a
+  bløb on a flat canvas is given away the moment a hunter looks at it from a steep angle,
+  so a keep-out a few metres deep in front of each picture holds the hunters where the
+  silhouette still reads as paint. Shots and sight pass; the rope moves the fight, it does
+  not end it. Enforced like the bounds, on the local body every frame, and pushed back to
+  the face you came in through with your movement along it kept, so a rope is something
+  you brush along, never bounce off, and never tunnel through. Unlike the bounds a
+  keep-out may live in `Base` (every size) or in a size root (that size only). Validate
+  Map errors on a spawn disc that lands inside a volume holding its own side back, warns
+  on a disc whose rim reaches in, and warns on a keep-out that sits entirely outside a
+  size's bounds. The example map gains a painting on room 1's north wall with a rope zone
+  in front of it. Red, blue and grey gizmos, hidden by the same **Show Bounds Volumes**
+  toggle.
+- **Real Size** (`Cover Up! ▸ Maps ▸ Real Size`), the mapper's ruler. Select an object,
+  read what it currently measures in metres along its own axes, type what it really
+  measures, press **Fit**: uniform, undoable, and height means the object's own up axis,
+  so a scan that arrived on its side still fits upright. Everything rendered under the
+  selection counts, plinth included; fit a child to size the figure alone. **Save as
+  prefab variant** keeps the size beside the source asset as `<name>_RealSize` for every
+  later drag-in, the same way for FBX and glTF (the glTF importer has no scale setting, so
+  a variant is the only place its scale can live). Built because assets do not agree on a
+  metre: FBX carries a unit tag, glTF does not, and photoscans arrive at anything from
+  70 cm to two kilometres for a life-size figure.
+- **Reference doll labels show the arithmetic**: `Hider — 0.54 m (0.40 × 1.35 m)`, so the
+  MapConfig slider, a ratio on the authored 1.35 m body, stops reading as a height.
+- **Validate Map warns on wrong-unit imports**: anything over 20 m tall or under 1 cm in
+  every direction, naming the objects and pointing at Real Size.
 
 ## [0.11.2] — 2026-08-26
 

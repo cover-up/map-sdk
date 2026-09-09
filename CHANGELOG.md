@@ -3,6 +3,15 @@
 All notable changes to the Cover Up! Map SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this package uses semantic versioning.
 
+## [0.12.2] — 2026-09-09
+
+### Fixed
+- **Real Size no longer stalls the editor.** The window re-measured every selected object
+  ten times a second, walking every renderer under it each time; with a large selection
+  that made the Scene view lag (canvas-chaos). Rows are now cached and rebuilt only when
+  the selection, hierarchy, undo, one of the window's own actions, a root's matrix, or a
+  one-second tick says a size may have changed; the renderer walk no longer allocates.
+
 ## [0.12.1] — 2026-09-09
 
 ### Changed

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 using CoverUp.Core;
 using CoverUp.Gameplay;
@@ -14,6 +15,13 @@ namespace CoverUp.EditorTools
     ///
     /// Shows the map's own hider and hunter heights beside the readout, because "is 2.5 m
     /// right?" is only answerable against who has to hide behind it.
+    ///
+    /// Measuring walks every renderer under a selected root. The first versions did that
+    /// on every repaint, driven by a ten-times-a-second timer, and with a large selection
+    /// that stalled the whole editor (canvas-chaos, 2026-09-09). Rows are now cached and
+    /// rebuilt only when something that can change a size happens: the selection, the
+    /// hierarchy, undo, one of this window's own actions, a root's matrix moving, or a
+    /// one-second tick as the catch-all for a child edited in the Inspector.
     /// </summary>
     public sealed class MapRealSizeWindow : EditorWindow
     {
@@ -21,6 +29,7 @@ namespace CoverUp.EditorTools
         private const string PrefAxis = "CoverUp.MapRealSize.Axis";
         private const string PrefFrame = "CoverUp.MapRealSize.Frame";
         private const int MaxRows = 8;
+        private const double TickSeconds = 1.0;
 
         // Fills the field, nothing more. Real-world sizes a mapper reaches for while
         // guessing a scan; the field stays the actual control.
@@ -32,11 +41,23 @@ namespace CoverUp.EditorTools
             ("Bottle 0.25", 0.25f),
         };
 
+        private struct Row
+        {
+            public bool measured;
+            public Vector3 size;
+            public float tilt;
+            public Matrix4x4 matrix;
+        }
+
         private float _target = 2f;
         private RealSizeAxis _axis = RealSizeAxis.Height;
         private RealSizeFrame _frame = RealSizeFrame.World;
         private string _lastResult;
         private MessageType _lastResultType = MessageType.Info;
+
+        private readonly Dictionary<Transform, Row> _rows = new Dictionary<Transform, Row>();
+        private string _scaleLine;
+        private double _lastTick;
 
         [MenuItem("Cover Up!/Maps/Real Size")]
         private static void Open()
@@ -51,22 +72,59 @@ namespace CoverUp.EditorTools
             _target = EditorPrefs.GetFloat(PrefTarget, 2f);
             _axis = (RealSizeAxis)EditorPrefs.GetInt(PrefAxis, (int)RealSizeAxis.Height);
             _frame = (RealSizeFrame)EditorPrefs.GetInt(PrefFrame, (int)RealSizeFrame.World);
-            Undo.undoRedoPerformed += Repaint;
+            Undo.undoRedoPerformed += Invalidate;
+            Invalidate();
         }
 
-        private void OnDisable() => Undo.undoRedoPerformed -= Repaint;
+        private void OnDisable() => Undo.undoRedoPerformed -= Invalidate;
 
         // A result belongs to the object it was about; a new selection starts clean.
         private void OnSelectionChange()
         {
             _lastResult = null;
+            Invalidate();
+        }
+
+        private void OnHierarchyChange() => Invalidate();
+
+        // Ten times a second, but cheap: a few matrix compares and a clock. The
+        // measuring itself happens in OnGUI, only for rows that were thrown away.
+        private void OnInspectorUpdate()
+        {
+            bool stale = EditorApplication.timeSinceStartup - _lastTick > TickSeconds;
+            if (!stale)
+            {
+                Transform[] roots = SceneSelection();
+                for (int i = 0; i < roots.Length && i < MaxRows; i++)
+                {
+                    if (_rows.TryGetValue(roots[i], out Row r) &&
+                        r.matrix != roots[i].localToWorldMatrix)
+                    {
+                        stale = true;
+                        break;
+                    }
+                }
+            }
+            if (stale) Invalidate();
+        }
+
+        private void Invalidate()
+        {
+            _rows.Clear();
+            _scaleLine = null;
+            _lastTick = EditorApplication.timeSinceStartup;
             Repaint();
         }
 
-        private void OnHierarchyChange() => Repaint();
-        // Transform edits in the Inspector don't raise a hierarchy change; a 10 Hz
-        // repaint keeps the readout honest while someone drags a scale handle.
-        private void OnInspectorUpdate() => Repaint();
+        private Row RowFor(Transform root)
+        {
+            if (_rows.TryGetValue(root, out Row r)) return r;
+            r.measured = MapRealSize.TryMeasure(root, _frame, out r.size);
+            r.tilt = MapRealSize.TiltDegrees(root);
+            r.matrix = root.localToWorldMatrix;
+            _rows[root] = r;
+            return r;
+        }
 
         private void OnGUI()
         {
@@ -82,6 +140,7 @@ namespace CoverUp.EditorTools
                 "What the object measures in real life, in metres."), _target);
             _axis = (RealSizeAxis)EditorGUILayout.EnumPopup(new GUIContent("Refers to",
                 "Which extent that number is."), _axis);
+            RealSizeFrame frameBefore = _frame;
             _frame = (RealSizeFrame)EditorGUILayout.EnumPopup(new GUIContent("Axes",
                 "World: height is the scene's up, the way you see the object (default). " +
                 "Object: the root's own axes, for a prop deliberately laid on its side."), _frame);
@@ -90,6 +149,7 @@ namespace CoverUp.EditorTools
                 EditorPrefs.SetFloat(PrefTarget, _target);
                 EditorPrefs.SetInt(PrefAxis, (int)_axis);
                 EditorPrefs.SetInt(PrefFrame, (int)_frame);
+                if (_frame != frameBefore) Invalidate();
             }
 
             EditorGUILayout.BeginHorizontal();
@@ -146,19 +206,21 @@ namespace CoverUp.EditorTools
             return list;
         }
 
-        private static void DrawScaleLine()
+        private void DrawScaleLine()
         {
-            Scene scene = SceneManager.GetActiveScene();
-            MapConfig cfg = null;
-            foreach (MapConfig c in FindObjectsByType<MapConfig>(FindObjectsInactive.Include))
-                if (c.gameObject.scene == scene) { cfg = c; break; }
+            if (_scaleLine == null)
+            {
+                Scene scene = SceneManager.GetActiveScene();
+                MapConfig cfg = null;
+                foreach (MapConfig c in FindObjectsByType<MapConfig>(FindObjectsInactive.Include))
+                    if (c.gameObject.scene == scene) { cfg = c; break; }
 
-            float hider = GameScale.ApproxHeightMeters(cfg != null ? cfg.HiderScale : GameScale.Default);
-            float hunter = GameScale.ApproxHeightMeters(cfg != null ? cfg.HunterScale : GameScale.Default);
-            string src = cfg != null ? "this map's MapConfig" : "default scale, no MapConfig";
-            EditorGUILayout.LabelField(
-                $"For comparison: hider ≈ {hider:0.00} m, hunter ≈ {hunter:0.00} m ({src}).",
-                EditorStyles.miniLabel);
+                float hider = GameScale.ApproxHeightMeters(cfg != null ? cfg.HiderScale : GameScale.Default);
+                float hunter = GameScale.ApproxHeightMeters(cfg != null ? cfg.HunterScale : GameScale.Default);
+                string src = cfg != null ? "this map's MapConfig" : "default scale, no MapConfig";
+                _scaleLine = $"For comparison: hider ≈ {hider:0.00} m, hunter ≈ {hunter:0.00} m ({src}).";
+            }
+            EditorGUILayout.LabelField(_scaleLine, EditorStyles.miniLabel);
         }
 
         private void DrawReadout(Transform[] roots)
@@ -181,14 +243,14 @@ namespace CoverUp.EditorTools
                     EditorGUILayout.LabelField($"… and {roots.Length - MaxRows} more");
                     break;
                 }
-                string line = MapRealSize.TryMeasure(root, _frame, out Vector3 s)
-                    ? $"W {s.x:0.00}   H {s.y:0.00}   D {s.z:0.00} m"
+                Row r = RowFor(root);
+                string line = r.measured
+                    ? $"W {r.size.x:0.00}   H {r.size.y:0.00}   D {r.size.z:0.00} m"
                     : "nothing rendered under it";
                 // A tilted root is the one case where the two frames disagree, so say so
                 // on the row itself rather than leaving the mapper to spot a -90 in the
                 // Inspector.
-                float tilt = MapRealSize.TiltDegrees(root);
-                if (tilt > 0.5f) line += $"   · root tilted {tilt:0}°";
+                if (r.tilt > 0.5f) line += $"   · root tilted {r.tilt:0}°";
                 EditorGUILayout.LabelField(root.name, line);
             }
         }
@@ -255,6 +317,7 @@ namespace CoverUp.EditorTools
             _lastResult = sb.ToString().TrimEnd();
             _lastResultType = ok ? MessageType.Info : MessageType.Warning;
             Debug.Log("Real Size\n" + _lastResult);
+            Invalidate();
         }
     }
 }

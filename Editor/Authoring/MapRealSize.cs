@@ -60,6 +60,9 @@ namespace CoverUp.EditorTools
         /// (a group built in the scene). Matches the example builder's neutral folder.</summary>
         private const string FallbackFolder = "Assets/Maps/Prefabs";
 
+        // Reused by every measure so a repaint-driven caller never allocates the walk.
+        private static readonly List<Renderer> s_renderers = new List<Renderer>();
+
         /// <summary>Does this renderer count toward an object's size? Particles, trails
         /// and lines have no authored size, and anything tagged EditorOnly never ships.</summary>
         public static bool Counts(Renderer r)
@@ -87,7 +90,8 @@ namespace CoverUp.EditorTools
             bool any = false;
             var corners = new Vector3[8];
 
-            foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
+            root.GetComponentsInChildren(true, s_renderers);
+            foreach (Renderer r in s_renderers)
             {
                 if (!Counts(r) || !TryCorners(r, corners)) continue;
                 for (int i = 0; i < 8; i++)

@@ -13,7 +13,9 @@ namespace CoverUp.Gameplay
     /// renderer at all, so a shot fired at the horizon stopped on a wall nobody
     /// can see and hung a permanent splot in mid-air over the water. Every map
     /// with an out-of-bounds wall has the same problem, which is why this lives in
-    /// the SDK rather than in the hub.
+    /// the SDK rather than in the hub. (Since 2026-09-26 the hub's sea catches
+    /// shots as a plane, so that ring is a PassThroughSurface now and the hub's
+    /// remaining user is its floor guard; the rule is unchanged for maps.)
     ///
     /// Deliberately NOT either of the two markers next to it, because each gets
     /// half of it wrong. <see cref="PassThroughSurface"/> lets the shot carry on,

@@ -81,7 +81,23 @@ namespace CoverUp.Gameplay
             // scene. Same omission as PaintPreview above, found the same way: Validate
             // Map warned on a map whose glass is authored to be eyedropped.
             "CoverUp/FrostedGlass",
+            // The island's Toon Adventure props (cliffs, palms, rocks). The shader
+            // draws its atlas texel shaded by a ramp, with no tint and no second
+            // source, so the texel IS the albedo. It keeps the atlas under its own
+            // property name, which <see cref="AlbedoTextureProperty"/> says.
+            // Trusted 2026-09-27 so a hider pressed against a cliff can read it:
+            // the eyedropper and the wheel's "near you" run both go through here.
+            "Toon/TAI_CustomToon",
         };
+
+        /// <summary>Where a trusted shader keeps its albedo texture when that is
+        /// not one of the standard names (_BaseMap, _MainTex). Null means "the
+        /// standard names", which is every shader here but the one listed.</summary>
+        public static string AlbedoTextureProperty(Shader shader)
+        {
+            if (shader == null) return null;
+            return shader.name == "Toon/TAI_CustomToon" ? "_TextureSample" : null;
+        }
 
         /// <summary>True when the eyedropper may treat this shader's declared albedo
         /// as the truth. Null (a missing/stripped shader) is never trusted.</summary>

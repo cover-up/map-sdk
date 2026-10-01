@@ -31,10 +31,35 @@ namespace CoverUp.Gameplay
     /// Deliberately NOT a "no climb" flag on the collider or a slope trick: the
     /// float never touches slope or friction, it asks one question about what is
     /// in range, and this answers exactly that question.
+    ///
+    /// SHIELDING (2026-10-01) is the opt-in for a thin surface with something
+    /// climbable right behind it. The hub's jumbotron is a 10 cm plate on a rock
+    /// face: the globe reaches straight past the plate, finds the cliff, and the
+    /// float holds, so the plate was climbed on the rock's credit. A shielding
+    /// surface does more than go unseen: while it is in the globe NOTHING holds,
+    /// whatever else is in range. Off by default, because an out-of-bounds wall
+    /// that shielded would drop everyone floating on a rock near the boundary,
+    /// and a beach ball that shielded would knock a climber off as it drifted by.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class FloatProofSurface : MonoBehaviour
     {
+        [Tooltip("While this surface is in the float globe, nothing else in range holds either. " +
+                 "For a thin plate with climbable geometry right behind it.")]
+        [SerializeField] private bool shields;
+
+        /// <summary>Editor seam for the builders that author the marker.</summary>
+        public void SetShields(bool on) => shields = on;
+
+        /// <summary>True if this collider belongs to a SHIELDING surface: one in
+        /// the globe is enough to refuse the float outright.</summary>
+        public static bool Shields(Collider collider)
+        {
+            if (collider == null) return false;
+            FloatProofSurface s = collider.GetComponentInParent<FloatProofSurface>(true);
+            return s != null && s.shields;
+        }
+
         /// <summary>True if this collider belongs to a surface the float ignores.
         /// One policy for the sense and for the lean cue, so the body can never
         /// tilt toward a wall that is not holding it. Inactive parents count, for

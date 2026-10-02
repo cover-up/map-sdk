@@ -181,6 +181,7 @@ namespace CoverUp.EditorTools
 
             CheckBaseGrouping(scene, spawns, roots, errors, warnings);
             CheckStackedRoles(scene, variants, roots, spawns, warnings);
+            CheckCameraProof(scene, warnings);
             CheckWireEnvelope(spawns, bounds, errors);
 
             if (variants == null)
@@ -999,6 +1000,41 @@ namespace CoverUp.EditorTools
                         "component to it (feet still stand on it; shots and the camera boom cross it).");
                 }
             }
+        }
+
+        // ------------------------------------------------- camera-proof shell
+
+        /// <summary>
+        /// A map with solid geometry and not one CameraProofSurface: the hider's
+        /// camera passes through every wall, floor and ceiling in it, and on an
+        /// enclosed map that means the empty scene outside the shell is in frame
+        /// whenever a hider orbits into an outer wall. Nothing else says so; the
+        /// map loads, walks and looks right until a hider backs into a wall.
+        ///
+        /// A WARNING, not an error: an open arena with nothing to see through is a
+        /// legitimate map, and marking is opt-in by design (an unmarked map behaves
+        /// exactly as every map did before the marker existed). Inactive objects
+        /// count, so a marker on a size variant that is switched off still counts.
+        /// </summary>
+        private static void CheckCameraProof(Scene scene, List<string> warnings)
+        {
+            bool solid = false;
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                if (root.GetComponentInChildren<CameraProofSurface>(true) != null) return;
+                if (solid) continue;
+                foreach (Collider c in root.GetComponentsInChildren<Collider>(true))
+                {
+                    if (c.isTrigger || PassThroughSurface.Is(c)) continue;
+                    solid = true;
+                    break;
+                }
+            }
+            if (!solid) return;
+            warnings.Add("No CameraProofSurface anywhere: a hider's camera passes through every wall, " +
+                "floor and ceiling here and can show what is outside the map or in the next room. " +
+                "Add the component to the parent of your walls, floors and ceilings. Props stay " +
+                "see-through, so the body still shows through them.");
         }
 
         /// <summary>Is this transform part of <paramref name="sizeRoot"/>'s world?

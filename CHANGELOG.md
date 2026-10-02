@@ -3,6 +3,24 @@
 All notable changes to the Cover Up! Map SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this package uses semantic versioning.
 
+## [0.13.0] - 2026-10-02
+
+### Added
+- **`CameraProofSurface`**, walls the camera cannot cross. A hider's third-person camera
+  passes through scenery so the body is always in view, and on an enclosed map it passed
+  through the outer wall too and showed the empty scene around the map. Put the component
+  on the object that holds your walls, floors and ceilings (everything in its subtree
+  counts) and the hider's camera stops at them the way the hunter's does, from either
+  side, whatever way they face. The spectator's free-flying camera is held by them as
+  well, so it goes through doors. Props stay unmarked and see-through. A camera rule only:
+  feet, shots, sight, the float and exposure scoring do not change. A `PassThroughSurface`
+  inside a marked shell wins, so a glass deck stays glass. The game also keeps marked
+  surfaces whole inside the hider's see-through circle, which needs the marker above the
+  surface's renderer as well as its collider.
+- **Validate Map** warns when a map has solid geometry and no `CameraProofSurface` at all.
+- The example map marks its floor, perimeter walls, dividers and door plugs; the painting
+  stays a prop. Existing example scenes do not gain the markers on their own.
+
 ## [0.12.2] — 2026-09-09
 
 ### Fixed

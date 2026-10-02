@@ -147,13 +147,16 @@ namespace CoverUp.EditorTools
 
             sun.transform.SetParent(fixtures, true);
 
-            Surface(content, "Floor", new Vector3(0f, -0.05f, 0f), new Vector3(RoomLen * 3f, 0.1f, RoomWide), floorMat, true);
+            // The shell is camera-proof: floor, perimeter, dividers and the door
+            // plugs below. The painting is a prop on the wall and stays see-through,
+            // so the example shows both sides of the rule the moment it opens.
+            Shell(content, "Floor", new Vector3(0f, -0.05f, 0f), new Vector3(RoomLen * 3f, 0.1f, RoomWide), floorMat, true);
 
             // Outer perimeter.
-            Surface(content, "Wall_W", new Vector3(-halfX, WallH / 2f, 0f), new Vector3(WallT, WallH, RoomWide), wallMat, true);
-            Surface(content, "Wall_E", new Vector3(halfX, WallH / 2f, 0f), new Vector3(WallT, WallH, RoomWide), wallMat, true);
-            Surface(content, "Wall_N", new Vector3(0f, WallH / 2f, halfZ), new Vector3(RoomLen * 3f, WallH, WallT), wallMat, true);
-            Surface(content, "Wall_S", new Vector3(0f, WallH / 2f, -halfZ), new Vector3(RoomLen * 3f, WallH, WallT), wallMat, true);
+            Shell(content, "Wall_W", new Vector3(-halfX, WallH / 2f, 0f), new Vector3(WallT, WallH, RoomWide), wallMat, true);
+            Shell(content, "Wall_E", new Vector3(halfX, WallH / 2f, 0f), new Vector3(WallT, WallH, RoomWide), wallMat, true);
+            Shell(content, "Wall_N", new Vector3(0f, WallH / 2f, halfZ), new Vector3(RoomLen * 3f, WallH, WallT), wallMat, true);
+            Shell(content, "Wall_S", new Vector3(0f, WallH / 2f, -halfZ), new Vector3(RoomLen * 3f, WallH, WallT), wallMat, true);
 
             // Divider walls: two segments each, leaving a central doorway gap the
             // per-size doors plug. Segment length = (RoomWide - DoorGap) / 2.
@@ -251,15 +254,22 @@ namespace CoverUp.EditorTools
             var group = Child(parent, name);
             float segLen = (RoomWide - DoorGap) / 2f;       // length of each segment along Z
             float segZ = (DoorGap + segLen) / 2f;           // segment centre offset from Z=0
-            Surface(group, name + "_A", new Vector3(x, WallH / 2f, segZ), new Vector3(WallT, WallH, segLen), mat, true);
-            Surface(group, name + "_B", new Vector3(x, WallH / 2f, -segZ), new Vector3(WallT, WallH, segLen), mat, true);
+            Shell(group, name + "_A", new Vector3(x, WallH / 2f, segZ), new Vector3(WallT, WallH, segLen), mat, true);
+            Shell(group, name + "_B", new Vector3(x, WallH / 2f, -segZ), new Vector3(WallT, WallH, segLen), mat, true);
         }
 
         // The removable door: a slab filling the divider's gap. NOT GI-static —
         // it toggles with its size root, and static-flagged toggling warns.
         private static void DoorPlug(Transform parent, string name, float x, Material mat)
         {
-            Surface(parent, name, new Vector3(x, WallH / 2f, 0f), new Vector3(WallT, WallH, DoorGap), mat, false);
+            Shell(parent, name, new Vector3(x, WallH / 2f, 0f), new Vector3(WallT, WallH, DoorGap), mat, false);
+        }
+
+        // A surface the hider's camera cannot cross: the map's walls, floor and
+        // door plugs. See CameraProofSurface.
+        private static void Shell(Transform parent, string name, Vector3 center, Vector3 size, Material mat, bool giStatic)
+        {
+            Surface(parent, name, center, size, mat, giStatic).AddComponent<CameraProofSurface>();
         }
 
         // A keep-in volume spanning [x0..x1] over the full corridor width, inset
@@ -295,7 +305,7 @@ namespace CoverUp.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void Surface(Transform parent, string name, Vector3 center, Vector3 size, Material mat, bool giStatic)
+        private static GameObject Surface(Transform parent, string name, Vector3 center, Vector3 size, Material mat, bool giStatic)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = name;
@@ -309,6 +319,7 @@ namespace CoverUp.EditorTools
                 GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.ContributeGI
                     | StaticEditorFlags.OccluderStatic | StaticEditorFlags.OccludeeStatic | StaticEditorFlags.BatchingStatic);
             }
+            return go;
         }
 
         private static void SetSpawnRole(MapSpawnDisc disc, MapSpawnRole role)

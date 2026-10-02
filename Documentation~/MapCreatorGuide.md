@@ -237,6 +237,38 @@ side back (players landing there are shoved out on their first frame), warns whe
 rim reaches into one, and warns on a keep-out that lies entirely outside a size's bounds,
 where it keeps nobody out.
 
+### Walls the camera cannot cross
+
+A hider's camera passes through scenery. Back into a hay bale and the camera does not get
+shoved into your face: it goes through the bale, and the game draws your body through it
+so you can always see yourself. Left alone, that camera also goes through your map's
+outer wall, and what it shows from out there is the empty scene around your map.
+
+A `CameraProofSurface` is the fix. Put it on the object that holds your **walls, floors
+and ceilings**, outer and inner alike, and the hider's camera stops at them the way the
+hunter's does: it never crosses one, and it pulls in close when a hider turns the view into
+one. Everything in the component's subtree counts, so one component on your shell group
+covers the whole map. The spectator's free-flying camera is held by the same surfaces, so
+spectators fly through your doors like everyone else. Leave your props unmarked: crates,
+rocks, furniture, plants. The see-through is there so a hider pressed into a prop can still
+see their own body, and props are where that happens.
+
+- **A camera rule, nothing else.** Feet, shots, sight, the float and exposure scoring do not
+  change. A marked wall is exactly the wall it was.
+- **Both sides, any angle.** A marked floor also stops the camera from below, and a marked
+  ceiling from above; there is no "facing" to get right.
+- **Put it above the mesh too.** The game also keeps marked surfaces whole in the hider's
+  see-through circle, and for that it needs the surface's renderer, not only its collider.
+  Imported packs often keep the two on sibling objects: put the marker on their common
+  parent.
+- **Glass wins.** A `PassThroughSurface` inside a marked shell (a transparent deck the
+  hunters stand on) stays pass-through to the camera.
+- **Opt-in.** A map with no marker behaves as every map did before this existed. Validate
+  Map warns when it finds solid geometry and no marker at all.
+
+The example map marks its floor, perimeter, dividers and door plugs, and leaves the
+`Painting` on the north wall unmarked.
+
 ### The hunter's camera
 
 `MapConfig ▸ Hunter Camera` decides which camera the hunter plays your map in, because the
@@ -349,7 +381,7 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.12.2"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.13.0"`.
    (By default both the game and the SDK use `~/CoverUpMaps` (Linux/macOS) or
    `Documents\CoverUpMaps` (Windows), with the SDK exporting into its `local/`
    subfolder, so no path setup is needed. To relocate, see *Changing the folder* above.)

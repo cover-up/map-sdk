@@ -288,6 +288,18 @@ height is the sea level, and the sea spreads out from it as an endless flat plan
 - Needs a game build that knows SDK 0.14.0. An older build ignores the marker and shows
   whatever sky your scene has.
 
+### Grey outside the bounds
+
+The game draws everything outside your `MapBoundsVolume`s in near greyscale, fading in over
+half a metre from the edge. Players read it at once as "you cannot go there", so a backdrop
+beyond a fence or a wall no longer needs an obvious barrier in front of it.
+
+- It follows the **active size**: scenery that is in colour at Large is grey at Small.
+- Sky, water and effects are never greyed. Players never are either, since they cannot leave.
+- The eyedropper and Full Copy pick up the grey, so a hider at the edge can match it.
+- A map with no bounds volumes is never greyed.
+- To keep full colour outside, tick **Colour Outside Bounds** on `MapConfig`.
+
 ### The hunter's camera
 
 `MapConfig ▸ Hunter Camera` decides which camera the hunter plays your map in, because the

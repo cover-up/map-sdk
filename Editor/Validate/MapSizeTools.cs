@@ -182,6 +182,7 @@ namespace CoverUp.EditorTools
             CheckBaseGrouping(scene, spawns, roots, errors, warnings);
             CheckStackedRoles(scene, variants, roots, spawns, warnings);
             CheckCameraProof(scene, warnings);
+            CheckEnvironment(scene, spawns, warnings);
             CheckWireEnvelope(spawns, bounds, errors);
 
             if (variants == null)
@@ -1003,6 +1004,30 @@ namespace CoverUp.EditorTools
         }
 
         // ------------------------------------------------- camera-proof shell
+
+        /// <summary>
+        /// A MapEnvironment asks the game for the island's sky and sea. Two ways to
+        /// get it wrong are worth a line: a sea standing above where players land
+        /// (it has no collider, so they would spawn under water), and a second
+        /// marker the game will never read.
+        /// </summary>
+        private static void CheckEnvironment(Scene scene, List<MapSpawnDisc> spawns, List<string> warnings)
+        {
+            var environments = FindAllInScene<MapEnvironment>(scene);
+            if (environments.Count == 0) return;
+            if (environments.Count > 1)
+                warnings.Add($"{environments.Count} MapEnvironment components: the game reads only the first it finds. Keep one.");
+            MapEnvironment env = environments[0];
+            if (!env.Sea) return;
+            foreach (MapSpawnDisc sp in spawns)
+            {
+                if (sp.transform.position.y > env.SeaLevel + 0.3f) continue;
+                warnings.Add($"MapEnvironment's sea level ({env.SeaLevel:0.00}) is at or above MapSpawnDisc " +
+                    $"'{Path(sp.transform)}' ({sp.transform.position.y:0.00}). The sea has no collider, so players " +
+                    "would land under water. Lower the MapEnvironment object: its height is the water surface.");
+                break;
+            }
+        }
 
         /// <summary>
         /// A map with solid geometry and not one CameraProofSurface: the hider's

@@ -3,6 +3,19 @@
 All notable changes to the Cover Up! Map SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this package uses semantic versioning.
 
+## [0.14.0] - 2026-10-03
+
+### Added
+- **`MapEnvironment`**, the lobby island's sky and sea for any map. Put it on an empty
+  object and move that object to the water surface: its height is the sea level. The sky
+  material and the water are supplied by the game when the map loads, so the map package
+  carries neither and does not grow. Two switches, `Island Sky` and `Sea`. Lighting is
+  untouched: the sun, the flat ambient and the no-fog rule stay as on every map. The sea
+  has no collider (hold players in with bounds) and shots land on it. In the editor the
+  sea shows as a gizmo plane only.
+- **Validate Map** warns when the sea level reaches a spawn disc, and when a scene holds
+  more than one `MapEnvironment`.
+
 ## [0.13.0] - 2026-10-02
 
 ### Added

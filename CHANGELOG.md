@@ -15,9 +15,10 @@ All notable changes to the Cover Up! Map SDK. Format follows
   sea shows as a gizmo plane only.
 - **Validate Map** warns when the sea level reaches a spawn disc, and when a scene holds
   more than one `MapEnvironment`.
-- **The world outside your bounds is drawn in greyscale.** The game takes the
+- **The world outside your bounds is drawn in pale greyscale.** The game takes the
   colour out of everything that lies outside the union of the active size's
-  `MapBoundsVolume`s, at a hard line, so players see where the playable space ends.
+  `MapBoundsVolume`s and washes it toward white, at a hard line, so players see where the
+  playable space ends.
   Put the bounds a few centimetres PAST the faces of the walls that close your map, or
   those faces turn grey too.
   Sky, water and effects keep their colour. The eyedropper and Full Copy return the same

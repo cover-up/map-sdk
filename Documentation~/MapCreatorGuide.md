@@ -290,10 +290,13 @@ height is the sea level, and the sea spreads out from it as an endless flat plan
 
 ### Grey outside the bounds
 
-The game draws everything outside your `MapBoundsVolume`s in greyscale, fading in over
-half a metre from the edge. Players read it at once as "you cannot go there", so a backdrop
+The game draws everything outside your `MapBoundsVolume`s in greyscale, at a hard
+line along the edge. Players read it at once as "you cannot go there", so a backdrop
 beyond a fence or a wall no longer needs an obvious barrier in front of it.
 
+- **Put the bounds just past your closing walls.** A wall, fence or stack that stops players
+  should have its visible face a few centimetres INSIDE the bounds, or that face is grey too.
+  The wall's own collider is what stops players, so the bounds can reach into it.
 - It follows the **active size**: scenery that is in colour at Large is grey at Small.
 - Sky, water and effects are never greyed. Players never are either, since they cannot leave.
 - The eyedropper and Full Copy pick up the grey, so a hider at the edge can match it.

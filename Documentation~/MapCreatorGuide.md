@@ -269,6 +269,25 @@ see their own body, and props are where that happens.
 The example map marks its floor, perimeter, dividers and door plugs, and leaves the
 `Painting` on the north wall unmarked.
 
+### The island's sky and sea
+
+An outdoor map can borrow the lobby island's sky and its sea. Add an empty object, put a
+**`MapEnvironment`** on it, and move it to where the water surface should be: the object's
+height is the sea level, and the sea spreads out from it as an endless flat plane.
+
+- **Nothing ships in your map.** The sky and the water live in the game, so the marker
+  adds no size to your package. In the editor the sea is drawn as a blue gizmo plane; the
+  real water and sky appear in the game.
+- **Two switches**: `Island Sky` and `Sea`. Use either or both.
+- **Lighting does not change.** The sun and the flat ambient stay the arena standard, and
+  fog stays off, so camouflage reads the same as on any other map.
+- **The sea has no collider.** Players fall through it, so keep them out with your
+  `MapBoundsVolume`. Shots do land on it, with a splash.
+- **Keep the surface at least 0.3 m below any place players stand.** Validate Map warns
+  when it reaches a spawn disc.
+- Needs a game build that knows SDK 0.14.0. An older build ignores the marker and shows
+  whatever sky your scene has.
+
 ### The hunter's camera
 
 `MapConfig ▸ Hunter Camera` decides which camera the hunter plays your map in, because the
@@ -381,7 +400,7 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.13.0"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.14.0"`.
    (By default both the game and the SDK use `~/CoverUpMaps` (Linux/macOS) or
    `Documents\CoverUpMaps` (Windows), with the SDK exporting into its `local/`
    subfolder, so no path setup is needed. To relocate, see *Changing the folder* above.)

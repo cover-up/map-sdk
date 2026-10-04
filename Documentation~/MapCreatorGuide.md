@@ -297,6 +297,9 @@ beyond a fence or a wall no longer needs an obvious barrier in front of it.
 - **Put the bounds just past your closing walls.** A wall, fence or stack that stops players
   should have its visible face a few centimetres INSIDE the bounds, or that face is clay too.
   The wall's own collider is what stops players, so the bounds can reach into it.
+- **The bounds hold the whole body**, not just its feet: nothing of a player crosses a bounds
+  face, sideways or upward. A gap between a wall and a bounds face that is narrower than a body
+  cannot be entered.
 - It follows the **active size**: scenery that is in colour at Large is grey at Small.
 - Sky, water and effects are left alone. So are players, since they cannot leave.
 - The eyedropper and Full Copy pick up the clay, so a hider at the edge can match it.

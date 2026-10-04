@@ -15,6 +15,14 @@ All notable changes to the Cover Up! Map SDK. Format follows
   sea shows as a gizmo plane only.
 - **Validate Map** warns when the sea level reaches a spawn disc, and when a scene holds
   more than one `MapEnvironment`.
+- **The world outside your bounds is drawn near grey.** The game takes 85 percent of the
+  colour out of everything that lies outside the union of the active size's
+  `MapBoundsVolume`s, over a half-metre fade, so players see where the playable space ends.
+  Sky, water and effects keep their colour. The eyedropper and Full Copy return the same
+  grey, so camouflage against the outside still matches. On for every map with bounds
+  volumes; tick **Colour Outside Bounds** on `MapConfig` to opt out.
+- `MapBoundsVolume.DistanceOutside` and `MapBoundsVolume.CollectActive`, the two queries
+  the game uses for it.
 
 ## [0.13.0] - 2026-10-02
 

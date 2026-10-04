@@ -69,6 +69,15 @@ namespace CoverUp.Gameplay
                  "stays globally fixed). Baked by Apply Arena Lighting and re-clamped at load.")]
         private Color ambientTint = Color.white;
 
+        [SerializeField]
+        [Tooltip("The game draws everything outside the map's bounds volumes in near greyscale, so players " +
+                 "see where the playable space ends. Tick this to keep full colour out there instead. " +
+                 "Sky and water are never greyed. A map with no bounds volumes is never greyed.")]
+        private bool colourOutsideBounds = false;
+
+        /// <summary>True when the map opted out of the grey world outside its bounds.</summary>
+        public bool ColourOutsideBounds => colourOutsideBounds;
+
         /// <summary>The authored per-map hider scale, before clamping.</summary>
         public float HiderScale => hiderScale;
 

@@ -62,6 +62,36 @@ namespace CoverUp.Gameplay
             return best != float.MaxValue;
         }
 
+        /// <summary>How far, in world metres, a point lies outside the union of the
+        /// active scene's volumes. 0 inside the union, and 0 when the active scene
+        /// has no volumes at all. The game greys the world by this distance, and the
+        /// eyedropper asks the same question so its colour matches the screen.</summary>
+        public static float DistanceOutside(Vector3 position)
+            => TryClamp(position, out Vector3 clamped) ? Vector3.Distance(position, clamped) : 0f;
+
+        /// <summary>The active scene's live volumes as the two things a shader needs
+        /// to measure against a box: its world-to-local matrix, and the world length
+        /// of its three local axes. Fills the lists and returns the count.</summary>
+        public static int CollectActive(List<Matrix4x4> worldToLocal, List<Vector3> axisLengths)
+        {
+            worldToLocal.Clear();
+            axisLengths.Clear();
+            if (Volumes.Count == 0) return 0;
+            Scene active = SceneManager.GetActiveScene();
+            foreach (MapBoundsVolume volume in Volumes)
+            {
+                if (volume.gameObject.scene != active) continue;
+                Transform t = volume.transform;
+                worldToLocal.Add(t.worldToLocalMatrix);
+                Matrix4x4 m = t.localToWorldMatrix;
+                axisLengths.Add(new Vector3(
+                    ((Vector3)m.GetColumn(0)).magnitude,
+                    ((Vector3)m.GetColumn(1)).magnitude,
+                    ((Vector3)m.GetColumn(2)).magnitude));
+            }
+            return worldToLocal.Count;
+        }
+
         // Scene-view aid while placing: the playable box this volume adds.
         private void OnDrawGizmos()
         {

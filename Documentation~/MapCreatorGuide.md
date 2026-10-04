@@ -290,7 +290,7 @@ height is the sea level, and the sea spreads out from it as an endless flat plan
 
 ### Grey outside the bounds
 
-The game draws everything outside your `MapBoundsVolume`s in near greyscale, fading in over
+The game draws everything outside your `MapBoundsVolume`s in greyscale, fading in over
 half a metre from the edge. Players read it at once as "you cannot go there", so a backdrop
 beyond a fence or a wall no longer needs an obvious barrier in front of it.
 

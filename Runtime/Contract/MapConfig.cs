@@ -70,7 +70,7 @@ namespace CoverUp.Gameplay
         private Color ambientTint = Color.white;
 
         [SerializeField]
-        [Tooltip("The game draws everything outside the map's bounds volumes in near greyscale, so players " +
+        [Tooltip("The game draws everything outside the map's bounds volumes in greyscale, so players " +
                  "see where the playable space ends. Tick this to keep full colour out there instead. " +
                  "Sky and water are never greyed. A map with no bounds volumes is never greyed.")]
         private bool colourOutsideBounds = false;

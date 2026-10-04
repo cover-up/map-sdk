@@ -288,19 +288,19 @@ height is the sea level, and the sea spreads out from it as an endless flat plan
 - Needs a game build that knows SDK 0.14.0. An older build ignores the marker and shows
   whatever sky your scene has.
 
-### Grey outside the bounds
+### Clay outside the bounds
 
-The game draws everything outside your `MapBoundsVolume`s in a pale, washed
-greyscale, at a hard line along the edge. Players read it at once as "you cannot go there", so a backdrop
+The game draws everything outside your `MapBoundsVolume`s as pale, matte clay:
+one grey material shaded only by its shape, starting at a hard line along the edge. Players read it at once as "you cannot go there", so a backdrop
 beyond a fence or a wall no longer needs an obvious barrier in front of it.
 
 - **Put the bounds just past your closing walls.** A wall, fence or stack that stops players
-  should have its visible face a few centimetres INSIDE the bounds, or that face is grey too.
+  should have its visible face a few centimetres INSIDE the bounds, or that face is clay too.
   The wall's own collider is what stops players, so the bounds can reach into it.
 - It follows the **active size**: scenery that is in colour at Large is grey at Small.
-- Sky, water and effects are never greyed. Players never are either, since they cannot leave.
-- The eyedropper and Full Copy pick up the grey, so a hider at the edge can match it.
-- A map with no bounds volumes is never greyed.
+- Sky, water and effects are left alone. So are players, since they cannot leave.
+- The eyedropper and Full Copy pick up the clay, so a hider at the edge can match it.
+- A map with no bounds volumes is left as it is.
 - To keep full colour outside, tick **Colour Outside Bounds** on `MapConfig`.
 
 ### The hunter's camera

@@ -68,7 +68,7 @@ namespace CoverUp.Gameplay
         // Scene-view aid while placing: the playable box this volume adds.
         private void OnDrawGizmos()
         {
-            if (!ShowGizmos) return;
+            if (!ShowGizmos || Application.isPlaying) return;   // in play the `bounds` console command shows the fence
             Gizmos.matrix = transform.localToWorldMatrix;
             Gizmos.color = new Color(1f, 0.45f, 0.15f, 0.12f);
             Gizmos.DrawCube(Vector3.zero, Vector3.one);

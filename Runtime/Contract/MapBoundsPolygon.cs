@@ -207,9 +207,11 @@ namespace CoverUp.Gameplay
         }
 
         // ------------------------------------------------------------------ scene view
+        // Scene-view aid while drawing. Never in play: the Game view's Gizmos toggle would paint it into the
+        // game, and the `bounds` console command is the way to see the fence there.
         private void OnDrawGizmos()
         {
-            if (!MapBoundsVolume.ShowGizmos || points.Count < 2) return;
+            if (!MapBoundsVolume.ShowGizmos || Application.isPlaying || points.Count < 2) return;
             _worldFrame = -1; RefreshWorld();
             int n = _world.Count;
             Gizmos.color = new Color(1f, 0.45f, 0.15f, 0.8f);
@@ -219,11 +221,6 @@ namespace CoverUp.Gameplay
                 var a1 = new Vector3(_world[j].x, _worldCeiling, _world[j].y); var b1 = new Vector3(_world[i].x, _worldCeiling, _world[i].y);
                 Gizmos.DrawLine(a0, b0); Gizmos.DrawLine(a1, b1); Gizmos.DrawLine(b0, b1);
             }
-            // a faint fill at the floor so the inside reads at a glance
-            Gizmos.color = new Color(1f, 0.45f, 0.15f, 0.12f);
-            Vector3 centre = Vector3.zero; foreach (Vector2 p in _world) centre += new Vector3(p.x, _worldFloor + 0.02f, p.y); centre /= n;
-            for (int i = 0, j = n - 1; i < n; j = i++)
-                Gizmos.DrawLine(centre, new Vector3(_world[i].x, _worldFloor + 0.02f, _world[i].y));
         }
     }
 }

@@ -272,6 +272,7 @@ namespace CoverUp.EditorTools
         private static bool IsFixture(Transform t) =>
             t.GetComponentInChildren<MapSpawnDisc>(true) != null
             || t.GetComponentInChildren<MapBoundsVolume>(true) != null
+            || t.GetComponentInChildren<MapBoundsPolygon>(true) != null
             || t.GetComponentInChildren<Light>(true) != null;
 
         private static Transform Ensure(Transform parent, string name, List<string> log)

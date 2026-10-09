@@ -232,6 +232,13 @@ What a rope does and does not do:
 Gizmos: red holds back hunters, blue holds back hiders, dark grey holds back everyone. The
 **Show Bounds Volumes** toggle hides them together with the orange bounds.
 
+**Boundaries that are not boxes.** A `MapBoundsPolygon` is a fence drawn as a closed outline:
+drag its corners in the scene view, add or remove corners from the inspector, set its floor and
+ceiling. Mix it with box volumes as you like, the playable space is the union of all of them.
+For an island, press **Trace outline** on it: it follows the height contour of your colliders at
+the sea level minus a depth, pushed out by an offset, and hands you the corners to tweak. In the
+game, type `bounds` in the console (backquote) to see every boundary drawn in the world.
+
 Validate Map errors on a spawn disc whose centre sits inside a keep-out that holds its own
 side back (players landing there are shoved out on their first frame), warns when a disc's
 rim reaches into one, and warns on a keep-out that lies entirely outside a size's bounds,

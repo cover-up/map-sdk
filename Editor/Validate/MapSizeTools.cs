@@ -164,7 +164,9 @@ namespace CoverUp.EditorTools
             MapSizeVariants variants = MapSizeVariants.FindInScene(scene);
             var spawns = FindAllInScene<MapSpawnDisc>(scene);
             var bounds = FindAllInScene<MapBoundsVolume>(scene);
+            var outlines = FindAllInScene<MapBoundsPolygon>(scene);
             var keepOuts = FindAllInScene<MapKeepOutVolume>(scene);
+            CheckOutlines(outlines, errors, warnings);
 
             // Size roots, hoisted out of the sized-map branch below: the grouping
             // checks need to know which objects are size roots (they belong under
@@ -183,7 +185,7 @@ namespace CoverUp.EditorTools
             CheckStackedRoles(scene, variants, roots, spawns, warnings);
             CheckCameraProof(scene, warnings);
             CheckEnvironment(scene, spawns, warnings);
-            CheckWireEnvelope(spawns, bounds, errors);
+            CheckWireEnvelope(spawns, bounds, outlines, errors);
 
             if (variants == null)
             {
@@ -192,8 +194,8 @@ namespace CoverUp.EditorTools
                 // warning, since a volume under Content still clamps correctly.
                 ReportSpawnCoverage(spawns, errors);
                 CheckKeepOuts("on this map", spawns, keepOuts, bounds, errors, warnings);
-                if (bounds.Count == 0)
-                    warnings.Add("No MapBoundsVolume — players are not kept inside the map.");
+                if (bounds.Count == 0 && outlines.Count == 0)
+                    warnings.Add("No MapBoundsVolume or MapBoundsPolygon — players are not kept inside the map.");
                 Transform oneSizeFixtures = MapContract.FindChild(
                     MapContract.FindChild(MapContract.FindRoot(scene), MapContract.Base), MapContract.Fixtures);
                 if (oneSizeFixtures != null)
@@ -202,6 +204,13 @@ namespace CoverUp.EditorTools
                     {
                         if (!b.transform.IsChildOf(oneSizeFixtures))
                             warnings.Add($"MapBoundsVolume '{Path(b.transform)}' is outside " +
+                                $"'{MapContract.Base}/{MapContract.Fixtures}' — on a one-size map the bounds " +
+                                "are infrastructure, and belong with the other fixtures.");
+                    }
+                    foreach (MapBoundsPolygon o in outlines)
+                    {
+                        if (!o.transform.IsChildOf(oneSizeFixtures))
+                            warnings.Add($"MapBoundsPolygon '{Path(o.transform)}' is outside " +
                                 $"'{MapContract.Base}/{MapContract.Fixtures}' — on a one-size map the bounds " +
                                 "are infrastructure, and belong with the other fixtures.");
                     }
@@ -221,12 +230,18 @@ namespace CoverUp.EditorTools
                     errors.Add($"MapBoundsVolume '{Path(b.transform)}' is not inside a size root — " +
                                "bounds must live under Small/Medium/Large, never in Base.");
             }
+            foreach (MapBoundsPolygon o in outlines)
+            {
+                if (!InsideAnyRoot(o.transform, roots))
+                    errors.Add($"MapBoundsPolygon '{Path(o.transform)}' is not inside a size root — " +
+                               "bounds must live under Small/Medium/Large, never in Base.");
+            }
 
             // Spawns may be shared (in Base/Fixtures, live at every size) or scoped to
             // one size root (live only at that size) — the latter is how a map gives
             // Large more landing spots than Small. Both coverage and containment are
             // therefore judged PER SIZE, against the set of discs actually active there.
-            ReportSpawnCoveragePerSize(spawns, variants, roots, bounds, errors);
+            ReportSpawnCoveragePerSize(spawns, variants, roots, bounds, outlines, errors);
             CheckKeepOutsPerSize(spawns, keepOuts, variants, roots, bounds, errors, warnings);
 
             // A size root with no bounds of its own is almost always an authoring
@@ -236,8 +251,8 @@ namespace CoverUp.EditorTools
             {
                 GameObject r = variants.Root(s);
                 if (r == null) continue;
-                if (r.GetComponentsInChildren<MapBoundsVolume>(true).Length == 0)
-                    warnings.Add($"Size '{s}' has no MapBoundsVolume — players won't be contained at that size.");
+                if (r.GetComponentsInChildren<MapBoundsVolume>(true).Length == 0 && r.GetComponentsInChildren<MapBoundsPolygon>(true).Length == 0)
+                    warnings.Add($"Size '{s}' has no MapBoundsVolume or MapBoundsPolygon — players won't be contained at that size.");
             }
 
             // Auto-size brackets. AutoThresholds already sanitizes, so compare
@@ -687,7 +702,7 @@ namespace CoverUp.EditorTools
         /// <summary>True when the point is inside any of these volumes. A volume is a
         /// unit cube in its own local space, so containment is a ±0.5 test after
         /// InverseTransformPoint — the same maths MapBoundsVolume.TryClamp uses.</summary>
-        private static bool InsideBounds(Vector3 p, List<MapBoundsVolume> volumes)
+        private static bool InsideBounds(Vector3 p, List<MapBoundsVolume> volumes, List<MapBoundsPolygon> outlines = null)
         {
             foreach (MapBoundsVolume v in volumes)
             {
@@ -695,7 +710,41 @@ namespace CoverUp.EditorTools
                 if (Mathf.Abs(local.x) <= 0.5f && Mathf.Abs(local.y) <= 0.5f && Mathf.Abs(local.z) <= 0.5f)
                     return true;
             }
+            if (outlines != null)
+                foreach (MapBoundsPolygon o in outlines)
+                    if (o.Contains(p)) return true;
             return false;
+        }
+
+        /// <summary>A drawn outline must be a real fence: at least three corners, some area, no
+        /// edge crossing another, and a ceiling above its floor.</summary>
+        private static void CheckOutlines(List<MapBoundsPolygon> outlines, List<string> errors, List<string> warnings)
+        {
+            foreach (MapBoundsPolygon o in outlines)
+            {
+                string path = Path(o.transform);
+                var pts = new List<Vector2>(o.Points);
+                if (pts.Count < 3) { errors.Add($"MapBoundsPolygon '{path}' has {pts.Count} corners — an outline needs at least three."); continue; }
+                if (o.Ceiling <= o.Floor) errors.Add($"MapBoundsPolygon '{path}' has its ceiling ({o.Ceiling:0.##}) at or under its floor ({o.Floor:0.##}).");
+                float area = 0f;
+                for (int i = 0, j = pts.Count - 1; i < pts.Count; j = i++) area += pts[j].x * pts[i].y - pts[i].x * pts[j].y;
+                if (Mathf.Abs(area) * 0.5f < 1f) errors.Add($"MapBoundsPolygon '{path}' encloses almost no area ({Mathf.Abs(area) * 0.5f:0.##} m²).");
+                int n = pts.Count; bool crossed = false;
+                for (int i = 0; i < n && !crossed; i++)
+                    for (int k = i + 2; k < n; k++)
+                    {
+                        if (i == 0 && k == n - 1) continue;   // neighbours around the closing edge
+                        if (SegmentsCross(pts[i], pts[(i + 1) % n], pts[k], pts[(k + 1) % n])) { crossed = true; break; }
+                    }
+                if (crossed) errors.Add($"MapBoundsPolygon '{path}' crosses itself — the inside is undefined where it does. Drag the corners apart.");
+            }
+        }
+
+        private static bool SegmentsCross(Vector2 a, Vector2 b, Vector2 c, Vector2 d)
+        {
+            float D(Vector2 p, Vector2 q, Vector2 r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+            float d1 = D(c, d, a), d2 = D(c, d, b), d3 = D(a, b, c), d4 = D(a, b, d);
+            return ((d1 > 0f && d2 < 0f) || (d1 < 0f && d2 > 0f)) && ((d3 > 0f && d4 < 0f) || (d3 < 0f && d4 > 0f));
         }
 
         /// <summary>
@@ -710,7 +759,7 @@ namespace CoverUp.EditorTools
         /// </summary>
         private static void ReportSpawnCoveragePerSize(
             List<MapSpawnDisc> spawns, MapSizeVariants variants, List<Transform> roots,
-            List<MapBoundsVolume> bounds, List<string> errors)
+            List<MapBoundsVolume> bounds, List<MapBoundsPolygon> outlines, List<string> errors)
         {
             if (spawns.Count == 0)
             {
@@ -745,11 +794,14 @@ namespace CoverUp.EditorTools
                 var sizeVolumes = new List<MapBoundsVolume>();
                 foreach (MapBoundsVolume b in bounds)
                     if (b.transform.IsChildOf(own)) sizeVolumes.Add(b);
-                if (sizeVolumes.Count == 0) continue;   // already warned about elsewhere
+                var sizeOutlines = new List<MapBoundsPolygon>();
+                foreach (MapBoundsPolygon o in outlines)
+                    if (o.transform.IsChildOf(own)) sizeOutlines.Add(o);
+                if (sizeVolumes.Count == 0 && sizeOutlines.Count == 0) continue;   // already warned about elsewhere
 
                 foreach (MapSpawnDisc sp in live)
                 {
-                    if (InsideBounds(sp.transform.position, sizeVolumes)) continue;
+                    if (InsideBounds(sp.transform.position, sizeVolumes, sizeOutlines)) continue;
                     errors.Add($"MapSpawnDisc '{Path(sp.transform)}' is outside the bounds of size "
                         + $"'{size}' — players landing there at that size are immediately pulled back in.");
                 }
@@ -895,9 +947,15 @@ namespace CoverUp.EditorTools
         /// into a line at export time.
         /// </summary>
         private static void CheckWireEnvelope(List<MapSpawnDisc> spawns,
-            List<MapBoundsVolume> bounds, List<string> errors)
+            List<MapBoundsVolume> bounds, List<MapBoundsPolygon> outlines, List<string> errors)
         {
             foreach (MapSpawnDisc d in spawns) Check(d.transform.position, Path(d.transform));
+            foreach (MapBoundsPolygon o in outlines)
+            {
+                if (o.Points.Count == 0) continue;
+                Bounds wb = o.WorldBounds();
+                Check(wb.max, Path(o.transform)); Check(wb.min, Path(o.transform));
+            }
             foreach (MapBoundsVolume b in bounds)
             {
                 Vector3 c = b.transform.position;

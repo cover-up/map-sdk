@@ -36,42 +36,15 @@ namespace CoverUp.Gameplay
         /// the union, or when the active scene has no volumes (nothing to
         /// enforce — volumes in a streamed-in but not-yet-entered map never
         /// bind).</summary>
+        /// <summary>The nearest point inside the playable space, which since SDK 0.15 is the union of
+        /// every active box AND every active <see cref="MapBoundsPolygon"/>: see <see cref="MapBounds"/>.
+        /// Kept here so older callers keep working.</summary>
         public static bool TryClamp(Vector3 position, out Vector3 clamped)
-        {
-            clamped = position;
-            if (Volumes.Count == 0) return false;
-            Scene active = SceneManager.GetActiveScene();
-            float best = float.MaxValue;
-            foreach (MapBoundsVolume volume in Volumes)
-            {
-                if (volume.gameObject.scene != active) continue;
-                Vector3 local = volume.transform.InverseTransformPoint(position);
-                Vector3 inside = new Vector3(
-                    Mathf.Clamp(local.x, -0.5f, 0.5f),
-                    Mathf.Clamp(local.y, -0.5f, 0.5f),
-                    Mathf.Clamp(local.z, -0.5f, 0.5f));
-                if (inside == local) return false;
-                Vector3 world = volume.transform.TransformPoint(inside);
-                float d = (world - position).sqrMagnitude;
-                if (d < best)
-                {
-                    best = d;
-                    clamped = world;
-                }
-            }
-            return best != float.MaxValue;
-        }
+            => MapBounds.TryClamp(position, out clamped);
 
-        /// <summary>How far, in world metres, a point lies outside the union of the
-        /// active scene's volumes. 0 inside the union, and 0 when the active scene
-        /// has no volumes at all. The game greys the world by this distance, and the
-        /// eyedropper asks the same question so its colour matches the screen.</summary>
         public static float DistanceOutside(Vector3 position)
-            => TryClamp(position, out Vector3 clamped) ? Vector3.Distance(position, clamped) : 0f;
+            => MapBounds.DistanceOutside(position);
 
-        /// <summary>The active scene's live volumes as the two things a shader needs
-        /// to measure against a box: its world-to-local matrix, and the world length
-        /// of its three local axes. Fills the lists and returns the count.</summary>
         public static int CollectActive(List<Matrix4x4> worldToLocal, List<Vector3> axisLengths)
         {
             worldToLocal.Clear();

@@ -3,6 +3,29 @@
 All notable changes to the Cover Up! Map SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this package uses semantic versioning.
 
+## [0.15.0] - 2026-10-10
+
+### Added
+- **`MapBoundsPolygon`**, a keep-in boundary drawn as a closed outline instead of a box: a
+  fence the mapper traces by hand, with a floor and a ceiling. Corners are dragged in the
+  scene view; the inspector adds and removes corners and can **trace the outline from the
+  scene's colliders** at a water level and depth, pushed out by an offset and simplified, so
+  an island's coast becomes its fence in one click and is then yours to edit. Outlines live
+  under size roots like volumes and mix freely with `MapBoundsVolume` boxes: the playable
+  space is the union of both. Asked for by Pål for the island maps.
+- **Validate Map** checks outlines: at least three corners, real area, no self-crossing,
+  ceiling above floor, inside a size root, inside the wire envelope; spawn containment and
+  the "size has no bounds" warning count outlines as bounds.
+- **`bounds` console command** (Public tier, in the game): draws every active boundary in the
+  world as orange lines, boxes and outlines alike, and follows size changes. For mappers.
+
+### Changed
+- **The clay outside the bounds follows outlines exactly** and no longer caps at sixteen
+  boxes: the game bakes one top-down distance texture of the active union when the set
+  changes, and the full-screen pass reads that.
+- `MapBoundsVolume.TryClamp` / `DistanceOutside` now answer for the union (boxes and
+  outlines) through the new `MapBounds` seam. Callers need no change.
+
 ## [0.14.0] - 2026-10-03
 
 ### Added

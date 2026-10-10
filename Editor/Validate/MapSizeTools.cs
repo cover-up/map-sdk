@@ -147,8 +147,10 @@ namespace CoverUp.EditorTools
             }
             string scaleNote = config != null
                 ? $", hiders ≈ {GameScale.ApproxHeightMeters(config.HiderScale):0.00} m / " +
-                  $"hunters ≈ {GameScale.ApproxHeightMeters(config.HunterScale):0.00} m"
+                  $"hunters ≈ {GameScale.ApproxHeightMeters(config.HunterScale):0.00} m" +
+                  $", wildlife {config.Wildlife}, gulls {config.Gulls}"
                 : ", default scale";
+            CheckWaterVolumes(scene, warnings);
 
             CheckWorkshopMetadata(scene, warnings);
             CheckBudget(scene, measureMemory, errors, warnings);
@@ -540,6 +542,27 @@ namespace CoverUp.EditorTools
             }
         }
 
+        // SDK 0.16: a water volume whose surface sits above a spawn disc, or that is flatter than a
+        // puddle, is almost always a dragged-wrong box.
+        private static void CheckWaterVolumes(Scene scene, List<string> warnings)
+        {
+            var waters = FindAllInScene<MapWaterVolume>(scene);
+            if (waters.Count == 0) return;
+            var spawns = FindAllInScene<MapSpawnDisc>(scene);
+            foreach (MapWaterVolume w in waters)
+            {
+                float depth = w.SurfaceY - w.FloorY;
+                if (depth < 0.05f)
+                    warnings.Add($"MapWaterVolume '{w.name}' is only {depth:0.00} m deep; scale it down into the ground so its TOP FACE is the surface.");
+                foreach (MapSpawnDisc d in spawns)
+                {
+                    Vector3 p = d.transform.position;
+                    if (w.CoversXZ(p.x, p.z) && w.SurfaceY > p.y + 0.3f)
+                        warnings.Add($"MapWaterVolume '{w.name}' puts its surface over spawn '{d.name}'; players would spawn under water.");
+                }
+            }
+        }
+
         /// <summary>
         /// Publish-readiness checks on the optional <see cref="WorkshopMapInfo"/>.
         /// Warnings, never errors — a map with no metadata is perfectly valid to export
@@ -549,6 +572,7 @@ namespace CoverUp.EditorTools
         /// full-bleed as the whole card (Docs/Steam.md §8.4), so a missing or tiny
         /// preview is what a player sees of the map before deciding to download it.
         /// </summary>
+
         private static void CheckWorkshopMetadata(Scene scene, List<string> warnings)
         {
             WorkshopMapInfo info = FindInScene<WorkshopMapInfo>(scene);

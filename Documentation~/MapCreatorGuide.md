@@ -295,6 +295,32 @@ height is the sea level, and the sea spreads out from it as an endless flat plan
 - Needs a game build that knows SDK 0.14.0. An older build ignores the marker and shows
   whatever sky your scene has.
 
+### Water you can wade in
+
+The sea comes with `MapEnvironment`. For any other water, a pool, a pond, a fountain basin, add
+an empty object with a **`MapWaterVolume`** and scale it over the water: it is a plain box, and
+its **top face is the surface**. Inside it a player is wading: the footsteps change, ripples
+follow them, and the wildlife knows there is water (fish in it, crabs along the rim). The game
+draws nothing here; the water's mesh and shader are still yours. Stack boxes for an odd shape.
+Validate Map warns when a box is flatter than a puddle or puts its surface over a spawn disc.
+
+### Wildlife
+
+Island maps get the lobby island's ambient life for free. There is nothing to place: the game
+reads your geometry when the map loads and seeds crabs on low ground near water, fish under the
+sea and in your water volumes, geckos, muskrats and sparrows on open ground, and gulls in the
+air. A map with no beach simply has no crabs.
+
+Two fields on `MapConfig` are the whole authoring:
+
+- **Wildlife**: `None`, `Sparse`, `Normal` (the lobby island's density, scaled to your land
+  area) or `Lush` (twice that).
+- **Gulls**: `None`, `Offshore` (over the sea only, never perching on the land, so a bird never
+  draws a seeker's eye to a hiding spot) or `Everywhere`.
+
+Critters are local to each player and never affect scoring. The player's own Island Life
+setting can still turn them all off.
+
 ### Clay outside the bounds
 
 The game draws everything outside your `MapBoundsVolume`s as pale, matte clay:

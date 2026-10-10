@@ -302,6 +302,10 @@ an empty object with a **`MapWaterVolume`** and scale it over the water: it is a
 its **top face is the surface**. Inside it a player is wading: the footsteps change, ripples
 follow them, and the wildlife knows there is water (fish in it, crabs along the rim). The game
 draws nothing here; the water's mesh and shader are still yours. Stack boxes for an odd shape.
+Drop the renderer that draws your water into the volume's **Surface** field and the water
+moves: the material's texture and normal map slide slowly (`Flow Speed`, `Flow Direction`) and
+the mesh rises and falls a centimetre or so (`Bob`). No script needed, and a still pool is one
+with no surface set.
 Validate Map warns when a box is flatter than a puddle or puts its surface over a spawn disc.
 
 ### Wildlife

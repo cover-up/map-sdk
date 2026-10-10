@@ -15,7 +15,10 @@ All notable changes to the Cover Up! Map SDK. Format follows
   cube shaped by its transform; its top face is the surface. Inside it a player wades: the
   footsteps swap to the wading loop and ripples follow, as on the lobby island. Fish may live
   in it and crabs along its rim. The water's own mesh and shader stay yours. Validate Map warns
-  when a volume is flatter than a puddle or puts its surface over a spawn.
+  when a volume is flatter than a puddle or puts its surface over a spawn. Point its
+  **Surface** field at the renderer drawing the water and the volume gives the still material
+  a slow drift and the mesh a gentle rise and fall (flow speed and direction, bob height and
+  period), with no script in the map.
 
 ## [0.15.0] - 2026-10-10
 

@@ -18,6 +18,67 @@ namespace CoverUp.Gameplay
     public sealed class MapWaterVolume : MonoBehaviour
     {
         private static readonly List<MapWaterVolume> Volumes = new List<MapWaterVolume>();
+        private static readonly int BaseMapSt = Shader.PropertyToID("_BaseMap_ST");
+
+        [Header("Movement (optional)")]
+        [SerializeField]
+        [Tooltip("The renderer drawing this water's surface. With one set, the fields below give the still " +
+                 "material a slow drift and the surface a gentle rise and fall, no script in your map. Leave " +
+                 "empty for a surface that does not move.")]
+        private Renderer surface;
+
+        [SerializeField, Range(0f, 0.2f)]
+        [Tooltip("How fast the surface texture (and its normal map) slides, in texture repeats per second. " +
+                 "0.01 to 0.03 reads as a pool; 0 is still.")]
+        private float flowSpeed = 0.015f;
+
+        [SerializeField, Range(0f, 360f)]
+        [Tooltip("Which way the surface slides, degrees clockwise from the map's +Z.")]
+        private float flowDirection = 30f;
+
+        [SerializeField, Range(0f, 5f)]
+        [Tooltip("How far the surface mesh rises and falls, in centimetres. 0 holds it still.")]
+        private float bobCentimetres = 1f;
+
+        [SerializeField, Range(1f, 20f)]
+        [Tooltip("Seconds per rise and fall.")]
+        private float bobSeconds = 5f;
+
+        /// <summary>The renderer this volume animates, if any.</summary>
+        public Renderer Surface => surface;
+        public float FlowSpeed => flowSpeed;
+
+        private MaterialPropertyBlock _mpb;
+        private Vector4 _baseSt;
+        private float _surfaceBaseY;
+        private bool _surfaceReady;
+
+        private void Update()
+        {
+            if (!Application.isPlaying || surface == null) return;
+            if (!_surfaceReady)
+            {
+                _mpb = new MaterialPropertyBlock();
+                Material m = surface.sharedMaterial;
+                _baseSt = m != null && m.HasProperty(BaseMapSt) ? m.GetVector(BaseMapSt) : new Vector4(1f, 1f, 0f, 0f);
+                _surfaceBaseY = surface.transform.localPosition.y;
+                _surfaceReady = true;
+            }
+            if (flowSpeed > 0f)
+            {
+                float t = Time.time * flowSpeed, rad = flowDirection * Mathf.Deg2Rad;
+                Vector2 o = new Vector2(Mathf.Sin(rad), Mathf.Cos(rad)) * t;
+                surface.GetPropertyBlock(_mpb);
+                _mpb.SetVector(BaseMapSt, new Vector4(_baseSt.x, _baseSt.y, _baseSt.z + o.x, _baseSt.w + o.y));
+                surface.SetPropertyBlock(_mpb);
+            }
+            if (bobCentimetres > 0f)
+            {
+                Vector3 lp = surface.transform.localPosition;
+                lp.y = _surfaceBaseY + Mathf.Sin(Time.time * (2f * Mathf.PI / Mathf.Max(0.1f, bobSeconds))) * bobCentimetres * 0.01f;
+                surface.transform.localPosition = lp;
+            }
+        }
 
         /// <summary>Editor-wide gizmo visibility: shares the bounds volumes' menu toggle.</summary>
         public static bool ShowGizmos => MapBoundsVolume.ShowGizmos;

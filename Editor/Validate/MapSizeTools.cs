@@ -552,6 +552,8 @@ namespace CoverUp.EditorTools
             foreach (MapWaterVolume w in waters)
             {
                 float depth = w.SurfaceY - w.FloorY;
+                if (w.Surface != null && w.Surface.sharedMaterial == null)
+                    warnings.Add($"MapWaterVolume '{w.name}' names a surface renderer with no material; the movement needs one.");
                 if (depth < 0.05f)
                     warnings.Add($"MapWaterVolume '{w.name}' is only {depth:0.00} m deep; scale it down into the ground so its TOP FACE is the surface.");
                 foreach (MapSpawnDisc d in spawns)

@@ -942,9 +942,10 @@ namespace CoverUp.EditorTools
         /// Teleport pads (Docs/MapSdk.md §21). Errors are the shapes the game cannot run: a pad
         /// with no <see cref="MapTeleportPair"/> above it, a pair without exactly two pads, a pair
         /// whose pads live in different size scopes (one would exist without its partner), a pad
-        /// outside the bounds live where the pad is (nobody could reach it, or the arrival would
-        /// be clamped off it), a pad inside a keep-out of any role (both roles may travel, so any
-        /// rope shoves an arriver off the pad). Warnings are taste: a partner too near to be worth
+        /// inside a keep-out of any role (both roles may travel, so any rope shoves an arriver off
+        /// the pad). A pad outside the bounds live where the pad is only puts the pair to SLEEP
+        /// at that size (the game leaves it out: no ring, no prompt, refused by the host), so it
+        /// is a warning: the way a Base pair opts out of a small size. Warnings are also taste: a partner too near to be worth
         /// the departure, a footprint too small to stand on or so large it stops reading as a pad,
         /// a washed-out colour, two pairs in near-identical colours. Returns the pair count for the
         /// summary line.
@@ -1013,28 +1014,28 @@ namespace CoverUp.EditorTools
                     Transform scope = ScopeRoot(pad.transform, roots);
                     if (scope != null)
                         CheckTeleportPadAt(pad, scope.name, LiveAtSize(bounds, roots, scope), LiveAtSize(outlines, roots, scope),
-                            LiveAtSize(keepOuts, roots, scope), errors);
+                            LiveAtSize(keepOuts, roots, scope), errors, warnings);
                     else if (roots.Count == 0)
-                        CheckTeleportPadAt(pad, null, bounds, outlines, keepOuts, errors);
+                        CheckTeleportPadAt(pad, null, bounds, outlines, keepOuts, errors, warnings);
                     else
                         foreach (Transform r in roots)
                             CheckTeleportPadAt(pad, r.name, LiveAtSize(bounds, roots, r), LiveAtSize(outlines, roots, r),
-                                LiveAtSize(keepOuts, roots, r), errors);
+                                LiveAtSize(keepOuts, roots, r), errors, warnings);
                 }
             }
             return pairs.Count;
         }
 
         private static void CheckTeleportPadAt(MapTeleportPad pad, string sizeName, List<MapBoundsVolume> bounds,
-            List<MapBoundsPolygon> outlines, List<MapKeepOutVolume> keepOuts, List<string> errors)
+            List<MapBoundsPolygon> outlines, List<MapKeepOutVolume> keepOuts, List<string> errors, List<string> warnings)
         {
             string where = sizeName != null ? $" at size '{sizeName}'" : "";
             // Probe a little above the pad: the pad sits on the floor, and a bounds box whose
             // bottom face is the floor would otherwise fail a point exactly on it.
             Vector3 probe = pad.transform.position + Vector3.up * 0.3f;
             if ((bounds.Count > 0 || outlines.Count > 0) && !InsideBounds(probe, bounds, outlines))
-                errors.Add($"MapTeleportPad '{Path(pad.transform)}' is outside the bounds{where}; nobody could stand on it, " +
-                           "and an arrival would be clamped off it.");
+                warnings.Add($"MapTeleportPad '{Path(pad.transform)}' is outside the bounds{where}, so its pair is DORMANT there: " +
+                             "no ring, no prompt, refused by the host. Intended for a pair that only fits a bigger size.");
             foreach (MapKeepOutVolume k in keepOuts)
                 if (InsideVolume(probe, k.transform))
                     errors.Add($"MapTeleportPad '{Path(pad.transform)}' is inside keep-out '{Path(k.transform)}'{where}; both " +

@@ -188,6 +188,8 @@ namespace CoverUp.EditorTools
             CheckCameraProof(scene, warnings);
             CheckEnvironment(scene, spawns, warnings);
             CheckWireEnvelope(spawns, bounds, outlines, errors);
+            int teleportPairs = CheckTeleports(scene, roots, bounds, outlines, keepOuts, errors, warnings);
+            if (teleportPairs > 0) scaleNote += $", {teleportPairs} teleport pair{(teleportPairs == 1 ? "" : "s")}";
 
             if (variants == null)
             {
@@ -857,6 +859,119 @@ namespace CoverUp.EditorTools
             var sb = new StringBuilder(t.name);
             for (Transform p = t.parent; p != null; p = p.parent) sb.Insert(0, p.name + "/");
             return sb.ToString();
+        }
+
+        // ------------------------------------------------------------ teleports
+
+        /// <summary>
+        /// Teleport pads (Docs/MapSdk.md §21). Errors are the shapes the game cannot run: a pad
+        /// with no <see cref="MapTeleportPair"/> above it, a pair without exactly two pads, a pair
+        /// whose pads live in different size scopes (one would exist without its partner), a pad
+        /// outside the bounds live where the pad is (nobody could reach it, or the arrival would
+        /// be clamped off it), a pad inside a keep-out of any role (both roles may travel, so any
+        /// rope shoves an arriver off the pad). Warnings are taste: a partner too near to be worth
+        /// the departure, a footprint too small to stand on or so large it stops reading as a pad,
+        /// a washed-out colour, two pairs in near-identical colours. Returns the pair count for the
+        /// summary line.
+        /// </summary>
+        private static int CheckTeleports(Scene scene, List<Transform> roots, List<MapBoundsVolume> bounds,
+            List<MapBoundsPolygon> outlines, List<MapKeepOutVolume> keepOuts, List<string> errors, List<string> warnings)
+        {
+            var pairs = FindAllInScene<MapTeleportPair>(scene);
+            var pads = FindAllInScene<MapTeleportPad>(scene);
+            if (pairs.Count == 0 && pads.Count == 0) return 0;
+
+            foreach (MapTeleportPad pad in pads)
+            {
+                if (pad.Pair == null)
+                    errors.Add($"MapTeleportPad '{Path(pad.transform)}' has no MapTeleportPair above it — " +
+                               "pads come in pairs under one parent that carries the colour.");
+                if (pad.Radius < MapTeleportPad.MinComfortableRadius)
+                    warnings.Add($"MapTeleportPad '{Path(pad.transform)}' has a {pad.Radius:0.00} m footprint; under " +
+                                 $"{MapTeleportPad.MinComfortableRadius:0.0} m is hard to stand on.");
+                else if (pad.Radius > MapTeleportPad.MaxComfortableRadius)
+                    warnings.Add($"MapTeleportPad '{Path(pad.transform)}' has a {pad.Radius:0.00} m footprint; over " +
+                                 $"{MapTeleportPad.MaxComfortableRadius:0.0} m stops reading as a pad.");
+                if (pad.PadRenderer != null && pad.PadRenderer.sharedMaterial == null)
+                    warnings.Add($"MapTeleportPad '{Path(pad.transform)}' names a pad renderer with no material; the tint needs one.");
+            }
+
+            for (int i = 0; i < pairs.Count; i++)
+            {
+                MapTeleportPair pair = pairs[i];
+                MapTeleportPad[] own = pair.Pads;
+                if (own.Length != MapTeleportPair.PadsPerPair)
+                {
+                    errors.Add($"MapTeleportPair '{Path(pair.transform)}' has {own.Length} pad(s); a pair needs exactly " +
+                               $"{MapTeleportPair.PadsPerPair} MapTeleportPad children.");
+                    continue;
+                }
+                Transform scopeA = ScopeRoot(own[0].transform, roots), scopeB = ScopeRoot(own[1].transform, roots);
+                if (scopeA != scopeB)
+                    errors.Add($"MapTeleportPair '{Path(pair.transform)}' has its pads in different size roots " +
+                               $"('{(scopeA != null ? scopeA.name : MapContract.Base)}' and " +
+                               $"'{(scopeB != null ? scopeB.name : MapContract.Base)}'); one would exist without its partner.");
+
+                float apart = Vector3.Distance(own[0].transform.position, own[1].transform.position);
+                if (apart < MapTeleportPad.MinUsefulDistance)
+                    warnings.Add($"MapTeleportPair '{Path(pair.transform)}' pads are only {apart:0.0} m apart; under " +
+                                 $"{MapTeleportPad.MinUsefulDistance:0} m walking beats the departure.");
+
+                Color.RGBToHSV(pair.Colour, out _, out float sat, out float val);
+                if (sat < 0.3f || val < 0.4f)
+                    warnings.Add($"MapTeleportPair '{Path(pair.transform)}' colour is washed out (saturation {sat:0.00}, " +
+                                 $"value {val:0.00}); pale pads vanish against sand and clay.");
+                for (int j = 0; j < i; j++)
+                {
+                    Color a = pair.Colour, b = pairs[j].Colour;
+                    float d = Mathf.Abs(a.r - b.r) + Mathf.Abs(a.g - b.g) + Mathf.Abs(a.b - b.b);
+                    if (d < 0.35f)
+                        warnings.Add($"MapTeleportPair '{Path(pair.transform)}' and '{Path(pairs[j].transform)}' are nearly the " +
+                                     "same colour; players tell pairs apart by colour.");
+                }
+
+                // Containment, judged where the pad is live: a pad in Base at every size that has
+                // bounds, a pad in a size root at that size only. A map with no bounds at all is
+                // already warned about; a pad then has nothing to be outside of.
+                foreach (MapTeleportPad pad in own)
+                {
+                    Transform scope = ScopeRoot(pad.transform, roots);
+                    if (scope != null)
+                        CheckTeleportPadAt(pad, scope.name, LiveAtSize(bounds, roots, scope), LiveAtSize(outlines, roots, scope),
+                            LiveAtSize(keepOuts, roots, scope), errors);
+                    else if (roots.Count == 0)
+                        CheckTeleportPadAt(pad, null, bounds, outlines, keepOuts, errors);
+                    else
+                        foreach (Transform r in roots)
+                            CheckTeleportPadAt(pad, r.name, LiveAtSize(bounds, roots, r), LiveAtSize(outlines, roots, r),
+                                LiveAtSize(keepOuts, roots, r), errors);
+                }
+            }
+            return pairs.Count;
+        }
+
+        private static void CheckTeleportPadAt(MapTeleportPad pad, string sizeName, List<MapBoundsVolume> bounds,
+            List<MapBoundsPolygon> outlines, List<MapKeepOutVolume> keepOuts, List<string> errors)
+        {
+            string where = sizeName != null ? $" at size '{sizeName}'" : "";
+            // Probe a little above the pad: the pad sits on the floor, and a bounds box whose
+            // bottom face is the floor would otherwise fail a point exactly on it.
+            Vector3 probe = pad.transform.position + Vector3.up * 0.3f;
+            if ((bounds.Count > 0 || outlines.Count > 0) && !InsideBounds(probe, bounds, outlines))
+                errors.Add($"MapTeleportPad '{Path(pad.transform)}' is outside the bounds{where}; nobody could stand on it, " +
+                           "and an arrival would be clamped off it.");
+            foreach (MapKeepOutVolume k in keepOuts)
+                if (InsideVolume(probe, k.transform))
+                    errors.Add($"MapTeleportPad '{Path(pad.transform)}' is inside keep-out '{Path(k.transform)}'{where}; both " +
+                               "roles may travel, so any rope shoves an arriver off the pad.");
+        }
+
+        /// <summary>The size root <paramref name="t"/> lives under, or null for Base (shared by every size).</summary>
+        private static Transform ScopeRoot(Transform t, List<Transform> roots)
+        {
+            foreach (Transform r in roots)
+                if (r != null && t.IsChildOf(r)) return r;
+            return null;
         }
 
         // ------------------------------------------------------------ keep-outs

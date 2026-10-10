@@ -308,6 +308,32 @@ the mesh rises and falls a centimetre or so (`Bob`). No script needed, and a sti
 with no surface set.
 Validate Map warns when a box is flatter than a puddle or puts its surface over a spawn disc.
 
+### Teleport pads
+
+A pair of pads that lead to each other. Make an empty object with a **`MapTeleportPair`** and
+give it two children with a **`MapTeleportPad`** each; put each pad where the feet should stand,
+on the floor, with its blue +Z arrow pointing the way a traveller should face when they arrive.
+The pair's **Colour** is its identity: both pads glow with it, the arc that appears when you
+stand on one wears it, and so does the pylon. Give every pair on your map its own colour.
+
+Standing on a pad shows "Press E to teleport" and the first few metres of a throw arc toward
+the partner. The press cannot be cancelled: half a second of departure, then you stand on the
+other pad. Both sides may use the pads in every phase, in both directions, and the pair
+recharges for three seconds after each hop so nobody can bounce back and forth.
+
+**Pylon** (on by default): while anyone stands on either pad, a tall pylon of the pair colour
+rises on BOTH pads, visible across the map. Everyone learns that someone is travelling and
+where they will come out. That is the point: the pad trades a long walk for a tell. Turn it
+off for a quiet pair; the pads still glow.
+
+The pad mesh is yours. Drop its renderer into the pad's **Pad Renderer** and the game tints its
+emission with the pair colour and brightens it while someone stands there; a ground ring in the
+pair colour is drawn either way. **Radius** is the footprint a player must stand inside. A pad
+under a size root exists only at that size; both pads of a pair must share a size root, or both
+sit under Base. Validate Map errors on a pad without a pair, a pair without exactly two pads,
+split pairs, a pad outside the bounds or inside a keep-out, and warns on pads nearer than 8 m,
+odd footprints, washed-out colours and two pairs that look alike.
+
 ### Wildlife
 
 Island maps get the lobby island's ambient life for free. There is nothing to place: the game
@@ -455,7 +481,7 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.14.0"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.17.0"`.
    (By default both the game and the SDK use `~/CoverUpMaps` (Linux/macOS) or
    `Documents\CoverUpMaps` (Windows), with the SDK exporting into its `local/`
    subfolder, so no path setup is needed. To relocate, see *Changing the folder* above.)

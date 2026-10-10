@@ -3,6 +3,23 @@
 All notable changes to the Cover Up! Map SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this package uses semantic versioning.
 
+## [0.17.0] - 2026-10-10
+
+### Added
+- **Teleport pads.** A **`MapTeleportPair`** parent (the pair's colour and a Pylon switch) with
+  exactly two **`MapTeleportPad`** children (footprint radius, exit facing = +Z, optional pad
+  renderer the game tints). Stand on a pad and the game shows the first metres of an arc toward
+  the partner; press Use and after a half-second departure you stand on the other pad, facing
+  its +Z. Both roles, every phase, both directions, 3 s recharge per pair. With Pylon on, a
+  pylon of the pair colour rises on BOTH pads while anyone stands on either, so the whole map
+  knows someone is travelling and where they come out. Pads under a size root exist at that
+  size only; under Base at every size. Needs a game build that knows the pads; older builds
+  ignore them.
+- **Validate Map** on pads: a pad without a pair above it, a pair without exactly two pads, pads
+  of one pair in different size roots, a pad outside the bounds or inside a keep-out are errors.
+  Pads nearer than 8 m, footprints under 0.6 m or over 3 m, washed-out colours and two pairs in
+  near-identical colours are warnings. The summary line counts the pairs.
+
 ## [0.16.0] - 2026-10-10
 
 ### Added

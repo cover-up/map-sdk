@@ -50,6 +50,9 @@ namespace CoverUp.Gameplay
         /// <summary>Who this disc places.</summary>
         public MapSpawnRole Role => role;
 
+        /// <summary>The footprint players land anywhere inside, world metres.</summary>
+        public float Radius => radius;
+
         /// <summary>Any disc belonging to one specific scene — the streamed-in map for
         /// warp-up placement, the active scene for bounds-escape restarts. A bare
         /// FindAnyObjectByType would grab whichever map happens to be loaded, even one

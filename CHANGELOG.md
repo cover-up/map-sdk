@@ -19,6 +19,13 @@ All notable changes to the Cover Up! Map SDK. Format follows
   of one pair in different size roots, a pad outside the bounds or inside a keep-out are errors.
   Pads nearer than 8 m, footprints under 0.6 m or over 3 m, washed-out colours and two pairs in
   near-identical colours are warnings. The summary line counts the pairs.
+- **Validate Map** treats a `MapSpawnDisc` as a footprint. Its radius plus half a body (0.4 m)
+  must stay inside the bounds live where the disc is (an error; the old check tested only the
+  centre). The ground under the rim is probed as well: a rim with no ground, or one more than
+  1 m under the centre (a shore, a ledge), is a warning. One-size maps get the containment check
+  for the first time. Reason: the game lands players anywhere in the footprint, and a disc by
+  the shore of an island map put a player outside the boundary.
+- `MapSpawnDisc.Radius` is readable.
 
 ## [0.16.0] - 2026-10-10
 

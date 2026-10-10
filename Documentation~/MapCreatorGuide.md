@@ -334,8 +334,13 @@ emission with the pair colour and brightens it while someone stands there; a gro
 pair colour is drawn either way. **Radius** is the footprint a player must stand inside. A pad
 under a size root exists only at that size; both pads of a pair must share a size root, or both
 sit under Base. Validate Map errors on a pad without a pair, a pair without exactly two pads,
-split pairs, a pad outside the bounds or inside a keep-out, and warns on pads nearer than 8 m,
-odd footprints, washed-out colours and two pairs that look alike.
+split pairs and a pad inside a keep-out, and warns on pads nearer than 8 m, odd footprints,
+washed-out colours and two pairs that look alike.
+
+A pair whose pad lies **outside the bounds** at some size is simply **dormant** there: no ring,
+no prompt, and the host refuses it. That is how a pair in Base opts out of Small: put the far
+pad where only Medium and Large reach, and Small never shows it. Validate Map says which pairs
+sleep at which size.
 
 ### Wildlife
 
@@ -484,7 +489,7 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.17.0"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.17.1"`.
    (By default both the game and the SDK use `~/CoverUpMaps` (Linux/macOS) or
    `Documents\CoverUpMaps` (Windows), with the SDK exporting into its `local/`
    subfolder, so no path setup is needed. To relocate, see *Changing the folder* above.)

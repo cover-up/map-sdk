@@ -3,6 +3,14 @@
 All notable changes to the Cover Up! Map SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this package uses semantic versioning.
 
+## [0.17.1] - 2026-10-10
+
+### Changed
+- **A teleport pair with a pad outside the bounds is dormant, not an error.** At a size whose
+  bounds leave either pad outside, the game leaves the pair out: no ring, no prompt, the host
+  refuses it. So pads can stay in Base and each size wakes only the pairs that fit it. Validate
+  Map now warns ("DORMANT at Small") where it used to error.
+
 ## [0.17.0] - 2026-10-10
 
 ### Added

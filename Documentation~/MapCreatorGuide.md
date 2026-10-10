@@ -144,6 +144,9 @@ there, moving nothing out of the scene and deleting nothing.
   readout), plus **Hunter Camera** — see **The hunter's camera** below.
 - **`MapSpawnDisc`** (in `Base/Fixtures`) — where players land. Required. Place more than
   one to give hiders and hunters separate spawns; see **Where each side lands** below.
+  The disc is a footprint: players land anywhere inside its radius, so the whole radius plus
+  half a body (0.4 m) has to sit inside the bounds, on ground that is about level with the
+  centre. Validate Map says so when a disc by a shore or a ledge reaches past either.
 - **`MapSizeVariants`** (optional) — small/medium/large variants of the same map;
   smaller sizes *add* doors/boundaries. Bounds volumes live **only** inside the size
   roots, never in `Base`. On a one-size map they belong in `Base/Fixtures`.

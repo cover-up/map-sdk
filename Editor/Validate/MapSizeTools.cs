@@ -200,6 +200,8 @@ namespace CoverUp.EditorTools
                 CheckKeepOuts("on this map", spawns, keepOuts, bounds, errors, warnings);
                 if (bounds.Count == 0 && outlines.Count == 0)
                     warnings.Add("No MapBoundsVolume or MapBoundsPolygon — players are not kept inside the map.");
+                else
+                    CheckSpawnFootprints(spawns, bounds, outlines, "the map", errors, warnings);
                 Transform oneSizeFixtures = MapContract.FindChild(
                     MapContract.FindChild(MapContract.FindRoot(scene), MapContract.Base), MapContract.Fixtures);
                 if (oneSizeFixtures != null)
@@ -245,7 +247,7 @@ namespace CoverUp.EditorTools
             // one size root (live only at that size) — the latter is how a map gives
             // Large more landing spots than Small. Both coverage and containment are
             // therefore judged PER SIZE, against the set of discs actually active there.
-            ReportSpawnCoveragePerSize(spawns, variants, roots, bounds, outlines, errors);
+            ReportSpawnCoveragePerSize(spawns, variants, roots, bounds, outlines, errors, warnings);
             CheckKeepOutsPerSize(spawns, keepOuts, variants, roots, bounds, errors, warnings);
 
             // A size root with no bounds of its own is almost always an authoring
@@ -787,7 +789,7 @@ namespace CoverUp.EditorTools
         /// </summary>
         private static void ReportSpawnCoveragePerSize(
             List<MapSpawnDisc> spawns, MapSizeVariants variants, List<Transform> roots,
-            List<MapBoundsVolume> bounds, List<MapBoundsPolygon> outlines, List<string> errors)
+            List<MapBoundsVolume> bounds, List<MapBoundsPolygon> outlines, List<string> errors, List<string> warnings)
         {
             if (spawns.Count == 0)
             {
@@ -827,13 +829,86 @@ namespace CoverUp.EditorTools
                     if (o.transform.IsChildOf(own)) sizeOutlines.Add(o);
                 if (sizeVolumes.Count == 0 && sizeOutlines.Count == 0) continue;   // already warned about elsewhere
 
-                foreach (MapSpawnDisc sp in live)
-                {
-                    if (InsideBounds(sp.transform.position, sizeVolumes, sizeOutlines)) continue;
-                    errors.Add($"MapSpawnDisc '{Path(sp.transform)}' is outside the bounds of size "
-                        + $"'{size}' — players landing there at that size are immediately pulled back in.");
-                }
+                CheckSpawnFootprints(live, sizeVolumes, sizeOutlines, $"size '{size}'", errors, warnings);
             }
+        }
+
+        /// <summary>Half a body: how far inside the bounds a disc's rim has to stop so the
+        /// whole character fits where it lands (MapSdk.md §18; the game clamps the body,
+        /// not the feet).</summary>
+        private const float SpawnBodyMargin = 0.4f;
+        /// <summary>A rim landing this much lower than the disc centre is a shore or a
+        /// ledge, not the floor the author pictured.</summary>
+        private const float SpawnRimDrop = 1f;
+        private const int SpawnRimPoints = 8;
+
+        /// <summary>
+        /// A disc is a FOOTPRINT, not a point: players land anywhere inside its radius, and
+        /// the game then keeps the whole body inside the bounds. So the test is the rim plus
+        /// half a body, against the bounds that are live where the disc is. The centre
+        /// outside is the old error; the rim outside is the shore-side disc that let an
+        /// Unstuck put a player on the wrong side of the boundary (Sandbox, 2026-10-10).
+        /// The ground under the rim is probed too: a rim that drops more than a metre under
+        /// the centre, or finds no ground at all, is said as a warning.
+        /// </summary>
+        private static void CheckSpawnFootprints(List<MapSpawnDisc> discs, List<MapBoundsVolume> volumes,
+            List<MapBoundsPolygon> outlines, string where, List<string> errors, List<string> warnings)
+        {
+            foreach (MapSpawnDisc sp in discs)
+            {
+                Vector3 c = sp.transform.position;
+                if (!InsideBounds(c, volumes, outlines))
+                {
+                    errors.Add($"MapSpawnDisc '{Path(sp.transform)}' is outside the bounds of {where} — " +
+                        "players landing there are immediately pulled back in.");
+                    continue;
+                }
+                float reach = sp.Radius + SpawnBodyMargin;
+                int rimOut = 0;
+                for (int i = 0; i < SpawnRimPoints; i++)
+                {
+                    float a = i * Mathf.PI * 2f / SpawnRimPoints;
+                    var p = new Vector3(c.x + Mathf.Cos(a) * reach, c.y, c.z + Mathf.Sin(a) * reach);
+                    if (!InsideBounds(p, volumes, outlines)) rimOut++;
+                }
+                if (rimOut > 0)
+                    errors.Add($"MapSpawnDisc '{Path(sp.transform)}' reaches outside the bounds of {where}: its " +
+                        $"{sp.Radius:0.0} m footprint plus half a body ({SpawnBodyMargin:0.0} m) crosses the face on " +
+                        $"{rimOut} of {SpawnRimPoints} sides. Shrink the radius or move the disc in, so no one lands " +
+                        "on the wrong side of the boundary.");
+
+                // The ground under the footprint: the disc centre's floor is what the author
+                // placed; a rim far below it is wet sand, a drop or the void.
+                if (!GroundAt(c, out float centreY)) continue;   // a disc with no floor is CheckEnvironment's business
+                int rimLow = 0, rimNone = 0; float worst = 0f;
+                for (int i = 0; i < SpawnRimPoints; i++)
+                {
+                    float a = i * Mathf.PI * 2f / SpawnRimPoints;
+                    var p = new Vector3(c.x + Mathf.Cos(a) * sp.Radius, c.y, c.z + Mathf.Sin(a) * sp.Radius);
+                    if (!GroundAt(p, out float y)) { rimNone++; continue; }
+                    float drop = centreY - y;
+                    if (drop > SpawnRimDrop) { rimLow++; worst = Mathf.Max(worst, drop); }
+                }
+                if (rimNone > 0)
+                    warnings.Add($"MapSpawnDisc '{Path(sp.transform)}' has no ground under {rimNone} of {SpawnRimPoints} " +
+                        "rim points — players landing there fall. Shrink the radius or move the disc.");
+                if (rimLow > 0)
+                    warnings.Add($"MapSpawnDisc '{Path(sp.transform)}': the ground under its rim drops {worst:0.0} m below " +
+                        $"the centre on {rimLow} of {SpawnRimPoints} sides (a shore, a ledge?) — players land there too.");
+            }
+        }
+
+        // The same probe MapSpawnDisc.SamplePoint uses to land a player: 0.5 m up, 25 m down,
+        // first collider hit.
+        private static bool GroundAt(Vector3 p, out float y)
+        {
+            if (Physics.Raycast(p + Vector3.up * 0.5f, Vector3.down, out RaycastHit hit, 25.5f))
+            {
+                y = hit.point.y;
+                return true;
+            }
+            y = p.y;
+            return false;
         }
 
         private static readonly MapSize[] AllSizes = { MapSize.Small, MapSize.Medium, MapSize.Large };

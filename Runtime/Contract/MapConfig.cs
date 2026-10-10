@@ -24,6 +24,38 @@ namespace CoverUp.Gameplay
     }
 
     /// <summary>
+    /// How much ambient wildlife the game seeds on this map (SDK 0.16). The game finds WHERE from
+    /// the map's own geometry: beaches for crabs, water for fish, open ground for the small
+    /// animals. Nothing is authored; this is the one knob. The player's own Island Life switch can
+    /// still turn all of it off.
+    /// </summary>
+    public enum MapWildlife : byte
+    {
+        /// <summary>No critters at all.</summary>
+        None = 0,
+        /// <summary>Half the normal count.</summary>
+        Sparse = 1,
+        /// <summary>The lobby island's density, scaled by this map's land area. Default.</summary>
+        Normal = 2,
+        /// <summary>Twice the normal count.</summary>
+        Lush = 3,
+    }
+
+    /// <summary>
+    /// Where gulls may fly on this map (SDK 0.16). A bird in the sky draws a seeker's eye, so
+    /// the mapper decides.
+    /// </summary>
+    public enum MapGulls : byte
+    {
+        /// <summary>No gulls.</summary>
+        None = 0,
+        /// <summary>Circle over the sea and perch only outside the land. Default.</summary>
+        Offshore = 1,
+        /// <summary>The lobby island's behaviour: perch anywhere flat.</summary>
+        Everywhere = 2,
+    }
+
+    /// <summary>
     /// Per-map player scale. Drop one on a map/scene root and the mapper sets how
     /// big the player dolls are relative to the (always 1:1) world — driving size,
     /// speed, jump, climb reaches, gun and camera framing through <see cref="GameScale"/>.
@@ -75,6 +107,18 @@ namespace CoverUp.Gameplay
                  "Sky and water are never greyed. A map with no bounds volumes is never greyed.")]
         private bool colourOutsideBounds = false;
 
+        [SerializeField]
+        [Tooltip("How much ambient wildlife the game seeds here: crabs on beaches, fish in water, small " +
+                 "animals on open ground, all found from your geometry. None for a quiet map, Lush for " +
+                 "twice the lobby island's density. The player's own Island Life switch can still turn it off.")]
+        private MapWildlife wildlife = MapWildlife.Normal;
+
+        [SerializeField]
+        [Tooltip("Where gulls may fly. Offshore keeps them over the sea and off the land, so they never " +
+                 "draw a seeker's eye to a hiding spot. None removes them. Everywhere lets them perch on " +
+                 "anything flat, as on the lobby island.")]
+        private MapGulls gulls = MapGulls.Offshore;
+
         /// <summary>True when the map opted out of the grey world outside its bounds.</summary>
         public bool ColourOutsideBounds => colourOutsideBounds;
 
@@ -87,6 +131,12 @@ namespace CoverUp.Gameplay
 
         /// <summary>The authored per-map hunter scale, before clamping.</summary>
         public float HunterScale => hunterScale;
+
+        /// <summary>How much ambient wildlife this map asks for.</summary>
+        public MapWildlife Wildlife => wildlife;
+
+        /// <summary>Where gulls may fly on this map.</summary>
+        public MapGulls Gulls => gulls;
 
         /// <summary>The camera this map forces on the hunter, or
         /// <see cref="MapHunterCamera.Auto"/> to leave the player's toggle alone.</summary>

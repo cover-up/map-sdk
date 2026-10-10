@@ -102,6 +102,20 @@ namespace CoverUp.EditorTools
                     MessageType.Info);
             }
 
+            // Wildlife (SDK 0.16): the game seeds critters from the map's geometry; the mapper
+            // only says how many, and whether gulls may cross the sky.
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Wildlife", EditorStyles.boldLabel);
+            SerializedProperty wildlife = serializedObject.FindProperty("wildlife");
+            SerializedProperty gulls = serializedObject.FindProperty("gulls");
+            EditorGUILayout.PropertyField(wildlife, new GUIContent("Density"));
+            EditorGUILayout.PropertyField(gulls, new GUIContent("Gulls"));
+            EditorGUILayout.HelpBox(
+                "Nothing to place: crabs find your beaches, fish your water (the sea, and any "
+                + "MapWaterVolume), the small animals your open ground. A map with no beach has no "
+                + "crabs. The player's Island Life setting can still turn all of it off.",
+                MessageType.None);
+
             serializedObject.ApplyModifiedProperties(); // routes through OnValidate → live preview
         }
     }

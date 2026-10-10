@@ -3,6 +3,20 @@
 All notable changes to the Cover Up! Map SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this package uses semantic versioning.
 
+## [0.16.0] - 2026-10-10
+
+### Added
+- **Wildlife on maps, with no authoring.** The game seeds its ambient critters on a map from
+  the map's own geometry: crabs on beaches (low ground near water), fish under water, geckos,
+  muskrats and sparrows on open ground, gulls in the air. The mapper sets only two things on
+  `MapConfig`: **Wildlife** (None / Sparse / Normal / Lush, the density) and **Gulls** (None /
+  Offshore / Everywhere). Validate Map prints both.
+- **`MapWaterVolume`**, a marker for water that is not the sea: a pool, a pond, a basin. A unit
+  cube shaped by its transform; its top face is the surface. Inside it a player wades: the
+  footsteps swap to the wading loop and ripples follow, as on the lobby island. Fish may live
+  in it and crabs along its rim. The water's own mesh and shader stay yours. Validate Map warns
+  when a volume is flatter than a puddle or puts its surface over a spawn.
+
 ## [0.15.0] - 2026-10-10
 
 ### Added

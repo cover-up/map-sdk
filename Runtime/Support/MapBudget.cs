@@ -176,7 +176,7 @@ namespace CoverUp.Gameplay
         public static Census Take(Scene scene)
         {
             var shared = new Census();
-            var perSize = new Census[3];
+            var perSize = new Census[MapSizeRules.Count];
 
             // Size roots first, so every counted object can be attributed. A map with
             // no MapSizeVariants leaves this empty and everything lands in `shared`.
@@ -184,7 +184,7 @@ namespace CoverUp.Gameplay
             MapSizeVariants variants = MapSizeVariants.FindInScene(scene);
             if (variants != null)
             {
-                foreach (MapSize s in new[] { MapSize.Small, MapSize.Medium, MapSize.Large })
+                foreach (MapSize s in MapSizeRules.All)
                 {
                     GameObject r = variants.Root(s);
                     roots.Add(r != null ? r.transform : null);

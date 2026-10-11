@@ -196,7 +196,7 @@ namespace CoverUp.EditorTools
             var sizeRoots = new List<Transform>();
             if (variants != null)
             {
-                foreach (MapSize s in new[] { MapSize.Small, MapSize.Medium, MapSize.Large })
+                foreach (MapSize s in MapSizeRules.All)
                 {
                     GameObject r = variants.Root(s);
                     if (r != null && r.scene == scene) sizeRoots.Add(r.transform);

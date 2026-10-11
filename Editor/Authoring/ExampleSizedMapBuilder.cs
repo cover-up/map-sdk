@@ -231,9 +231,9 @@ namespace CoverUp.EditorTools
 
             // Wire the variant roots + the solo/editor-play default.
             var so = new SerializedObject(variants);
-            so.FindProperty("small").objectReferenceValue = small.gameObject;
-            so.FindProperty("medium").objectReferenceValue = medium.gameObject;
-            so.FindProperty("large").objectReferenceValue = large.gameObject;
+            so.FindProperty("small.root").objectReferenceValue = small.gameObject;
+            so.FindProperty("medium.root").objectReferenceValue = medium.gameObject;
+            so.FindProperty("large.root").objectReferenceValue = large.gameObject;
             so.FindProperty("soloWalkSize").enumValueIndex = (int)MapSize.Medium;
             so.ApplyModifiedPropertiesWithoutUndo();
 

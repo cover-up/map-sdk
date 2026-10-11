@@ -23,12 +23,16 @@ namespace CoverUp.EditorTools
 
         [MenuItem("Cover Up!/Maps/Preview Size/Base only")]
         private static void PreviewBase() => Preview(null);
+        [MenuItem("Cover Up!/Maps/Preview Size/Tiny")]
+        private static void PreviewTiny() => Preview(MapSize.Tiny);
         [MenuItem("Cover Up!/Maps/Preview Size/Small")]
         private static void PreviewSmall() => Preview(MapSize.Small);
         [MenuItem("Cover Up!/Maps/Preview Size/Medium")]
         private static void PreviewMedium() => Preview(MapSize.Medium);
         [MenuItem("Cover Up!/Maps/Preview Size/Large")]
         private static void PreviewLarge() => Preview(MapSize.Large);
+        [MenuItem("Cover Up!/Maps/Preview Size/Huge")]
+        private static void PreviewHuge() => Preview(MapSize.Huge);
 
         // null = base only (all size roots hidden). Records undo and dirties the
         // scene so the previewed state persists (runtime ApplySize overrides it).
@@ -226,7 +230,7 @@ namespace CoverUp.EditorTools
 
             // Sized map: enforce the container contract.
             if (roots.Count == 0)
-                errors.Add("MapSizeVariants has no size roots assigned — build at least one (Small/Medium/Large).");
+                errors.Add("MapSizeVariants has no size roots assigned. Build at least one (Tiny/Small/Medium/Large/Huge).");
 
             // Every bounds volume must live inside a size root — a volume in Base
             // (or loose) leaks the largest extent into every size (union clamp).
@@ -234,13 +238,13 @@ namespace CoverUp.EditorTools
             {
                 if (!InsideAnyRoot(b.transform, roots))
                     errors.Add($"MapBoundsVolume '{Path(b.transform)}' is not inside a size root — " +
-                               "bounds must live under Small/Medium/Large, never in Base.");
+                               "bounds must live under a size root (Tiny to Huge), never in Base.");
             }
             foreach (MapBoundsPolygon o in outlines)
             {
                 if (!InsideAnyRoot(o.transform, roots))
                     errors.Add($"MapBoundsPolygon '{Path(o.transform)}' is not inside a size root — " +
-                               "bounds must live under Small/Medium/Large, never in Base.");
+                               "bounds must live under a size root (Tiny to Huge), never in Base.");
             }
 
             // Spawns may be shared (in Base/Fixtures, live at every size) or scoped to
@@ -261,35 +265,34 @@ namespace CoverUp.EditorTools
                     warnings.Add($"Size '{s}' has no MapBoundsVolume or MapBoundsPolygon — players won't be contained at that size.");
             }
 
-            // Auto-size brackets. AutoThresholds already sanitizes, so compare
-            // against the RAW serialized values to catch a mapper who typed a
-            // pair that silently got corrected rather than honoured.
-            var so = new SerializedObject(variants);
-            int rawSmall = so.FindProperty("smallMaxPlayers").intValue;
-            int rawMedium = so.FindProperty("mediumMaxPlayers").intValue;
-            (int smallMax, int mediumMax) = variants.AutoThresholds;
-            if (rawSmall != smallMax || rawMedium != mediumMax)
+            // Player brackets. Brackets already sanitizes, so compare against the
+            // AUTHORED values to catch a mapper whose numbers silently got
+            // corrected rather than honoured. Only built sizes count, and the
+            // largest built size takes everyone above, so its number is unused.
+            MapSizeBrackets brackets = variants.Brackets;
+            MapSize? largestBuilt = null;
+            foreach (MapSize s in AllSizes)
+                if (MapSizeRules.IsBuilt(variants.BuiltMask, s)) largestBuilt = s;
+            var sizeNote = new StringBuilder();
+            MapSize? prev = null;
+            foreach (MapSize s in AllSizes)
             {
-                warnings.Add($"Auto-size brackets {rawSmall}/{rawMedium} were corrected to " +
-                    $"{smallMax}/{mediumMax} — Small Max must be at least {MapSizeRules.MinThreshold} " +
-                    "and Medium Max must exceed it, or Medium is unreachable.");
+                if (!MapSizeRules.IsBuilt(variants.BuiltMask, s)) continue;
+                bool last = s == largestBuilt;
+                int raw = variants.AuthoredMaxPlayers(s);
+                int max = brackets.MaxPlayers(s);
+                if (!last && raw != max)
+                {
+                    warnings.Add($"Size '{s}' Max Players {raw} was corrected to {max}: each size must " +
+                        $"run for at least {MapSizeRules.MinThreshold} player and for more players than " +
+                        (prev.HasValue ? $"'{prev.Value}' ({brackets.MaxPlayers(prev.Value)})" : "the size below it") +
+                        ", or it is never picked.");
+                }
+                if (sizeNote.Length > 0) sizeNote.Append(" / ");
+                sizeNote.Append(last ? $"{s} {(prev.HasValue ? brackets.MaxPlayers(prev.Value) + 1 : 1)}+" : $"{s} ≤{max}");
+                prev = s;
             }
-            // A bracket only fires if the size it selects was actually built.
-            // Silent otherwise: the clamp walk still lands somewhere sensible,
-            // but the mapper's numbers aren't doing what they think.
-            if ((variants.BuiltMask & (1 << (int)MapSize.Small)) == 0
-                || (variants.BuiltMask & (1 << (int)MapSize.Medium)) == 0)
-            {
-                warnings.Add($"Auto brackets are set (≤{smallMax} Small, ≤{mediumMax} Medium) but not " +
-                    "every size is built — unbuilt sizes clamp to a neighbour, so some brackets " +
-                    "won't resolve to the size they name.");
-            }
-
-            string built = (variants.BuiltMask & 1) != 0 ? "S" : "-";
-            built += (variants.BuiltMask & 2) != 0 ? "M" : "-";
-            built += (variants.BuiltMask & 4) != 0 ? "L" : "-";
-            return (errors, warnings,
-                $"sized map (built: {built}, auto ≤{smallMax} S / ≤{mediumMax} M){scaleNote}");
+            return (errors, warnings, $"sized map ({sizeNote}){scaleNote}");
         }
 
         /// <summary>
@@ -911,7 +914,7 @@ namespace CoverUp.EditorTools
             return false;
         }
 
-        private static readonly MapSize[] AllSizes = { MapSize.Small, MapSize.Medium, MapSize.Large };
+        private static readonly MapSize[] AllSizes = MapSizeRules.All;
 
         private static MapSizeVariants OpenSceneVariants()
         {

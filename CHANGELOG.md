@@ -3,6 +3,23 @@
 All notable changes to the Cover Up! Map SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this package uses semantic versioning.
 
+## [0.19.0] - 2026-10-11
+
+### Changed
+- **Five map sizes: Tiny, Small, Medium, Large, Huge.** `MapSizeVariants` has a slot per size, each
+  with its `root` and its own **Max Players** (the most players that size runs for). Build any
+  subset. The game picks the smallest built size whose Max Players holds the player count; the
+  largest built size takes everyone above and ignores its own number. Defaults for a size you
+  leave alone: Tiny 5, Small 10, Medium 22, Large 40.
+- **No lobby size setting any more.** Hosts can no longer force a size; the count always decides.
+- `MapSizeVariants.smallMaxPlayers` / `mediumMaxPlayers` and `AutoThresholds` are gone (use
+  `Brackets`), and `MapSize`'s byte values moved (Tiny 0 to Huge 4). **Hard break:** reassign size
+  roots on an existing sized map, and re-pick Solo Walk Size.
+- `map.json` contract: `autoSmallMaxPlayers` / `autoMediumMaxPlayers` replaced by
+  `sizeMaxPlayers[]`, one per entry in `sizes[]` (still advisory).
+- **Preview Size** gains Tiny and Huge; **Validate Map** reports each built size's bracket and
+  warns when one was corrected.
+
 ## [0.18.0] - 2026-10-11
 
 ### Added

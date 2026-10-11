@@ -1,89 +1,124 @@
 namespace CoverUp.Core
 {
-    // The three built variants of one map. Smaller sizes ADD blockers (doors +
-    // bounds volumes) to a shared base — nothing is ever removed. Wire-encoded
-    // as this byte in PhaseChangeMsg; the ordinal order (Small < Medium < Large)
-    // is load-bearing for the clamp walk, do not reorder.
+    // The size tiers a map can build, smallest first. A map builds any subset;
+    // smaller sizes ADD blockers (doors + bounds volumes) to a shared base,
+    // nothing is ever removed. Wire-encoded as this byte in PhaseChangeMsg; the
+    // ordinal order (Tiny < … < Huge) is load-bearing for the bracket pick and
+    // the clamp walk, do not reorder.
     public enum MapSize : byte
     {
-        Small = 0,
-        Medium = 1,
-        Large = 2,
-    }
-
-    // The host's lobby choice. Auto resolves per-round from the count of players
-    // entering the map; a forced value ignores the count. Only the RESOLVED
-    // MapSize crosses the wire — Auto never does.
-    public enum MapSizeSetting : byte
-    {
-        Auto = 0,
+        Tiny = 0,
         Small = 1,
         Medium = 2,
         Large = 3,
+        Huge = 4,
     }
 
-    // Pure size arithmetic: auto thresholds + the "clamp to what the map built"
-    // rule. Engine-free so both the host phase machine and the wire layer share
-    // one definition.
+    // Pure size arithmetic: the per-size player brackets and the "clamp to what
+    // the map built" rule. Engine-free so both the host phase machine and the
+    // wire layer share one definition.
     //
-    // The thresholds are PER-MAP: a map authors its own on MapSizeVariants, and
-    // the host reads them off the loaded scene before StartRound. The Default*
-    // constants below are only the fallback for a map that doesn't say (and for
-    // a one-size map, where the clamp overrides the answer anyway). Only the
-    // RESOLVED MapSize crosses the wire, so the thresholds stay host-side and
-    // need no replication.
+    // There is no lobby setting: the size is ALWAYS picked from the count of
+    // players entering the map, against THAT map's brackets. The host reads the
+    // brackets off the loaded scene before StartRound (MapSizeBrackets); only
+    // the RESOLVED MapSize crosses the wire, so they need no replication.
     public static class MapSizeRules
     {
-        // Auto brackets on the count of players ENTERING the map that round:
-        //   ≤ smallMax → Small, ≤ mediumMax → Medium, else Large.
-        public const int DefaultSmallMaxPlayers = 10;
-        public const int DefaultMediumMaxPlayers = 22;
+        public const int Count = 5;
+        public static readonly MapSize[] All =
+            { MapSize.Tiny, MapSize.Small, MapSize.Medium, MapSize.Large, MapSize.Huge };
 
-        // A map can't sensibly ask for a Small bracket below 1 player, and the
-        // Medium bracket has to end after the Small one or Medium is unreachable.
-        // Authored values are pushed through this rather than trusted — a
-        // Workshop map's numbers are untrusted input like any other.
+        // A bracket below 1 player means nothing, and Workshop numbers are
+        // untrusted input, so authored values are pushed through Sanitize.
         public const int MinThreshold = 1;
-        public static void Sanitize(ref int smallMax, ref int mediumMax)
+
+        // The bracket a size gets when the map doesn't say: the most players
+        // it still runs for. The largest size a map builds ignores its own
+        // number and takes everyone above the size before it.
+        public static int DefaultMaxPlayers(MapSize size) => size switch
         {
-            if (smallMax < MinThreshold) smallMax = MinThreshold;
-            if (mediumMax <= smallMax) mediumMax = smallMax + 1;
-        }
+            MapSize.Tiny => 5,
+            MapSize.Small => 10,
+            MapSize.Medium => 22,
+            MapSize.Large => 40,
+            _ => NetMaxPlayers,
+        };
 
-        public static MapSize ForPlayers(int players) =>
-            ForPlayers(players, DefaultSmallMaxPlayers, DefaultMediumMaxPlayers);
+        // Mirrors NetProtocol.MaxPlayers without the package reaching into Core.
+        private const int NetMaxPlayers = 64;
 
-        public static MapSize ForPlayers(int players, int smallMax, int mediumMax)
-        {
-            Sanitize(ref smallMax, ref mediumMax);
-            if (players <= smallMax) return MapSize.Small;
-            if (players <= mediumMax) return MapSize.Medium;
-            return MapSize.Large;
-        }
-
-        // The host's desired size for the round: Auto reads the count against
-        // THIS map's brackets, a forced setting maps straight through
-        // (Small/Medium/Large sit one past Auto) and ignores them entirely.
-        public static MapSize Resolve(MapSizeSetting setting, int players) =>
-            Resolve(setting, players, DefaultSmallMaxPlayers, DefaultMediumMaxPlayers);
-
-        public static MapSize Resolve(MapSizeSetting setting, int players, int smallMax, int mediumMax) =>
-            setting == MapSizeSetting.Auto
-                ? ForPlayers(players, smallMax, mediumMax)
-                : (MapSize)(byte)(setting - 1);
+        public static bool IsBuilt(int builtMask, MapSize size) => (builtMask & (1 << (int)size)) != 0;
 
         // Constrain a desired size into the sizes a map actually built. Bit i of
         // builtMask = MapSize i is present. When the exact size is missing we
         // walk DOWN first (a slightly tighter arena is always safe), then up.
+        // The host already picks among built sizes; this is the per-client
+        // safety net for a desired size the loaded scene doesn't have.
         // Caller guarantees builtMask != 0.
         public static MapSize Clamp(MapSize desired, int builtMask)
         {
-            if ((builtMask & (1 << (int)desired)) != 0) return desired;
+            if (IsBuilt(builtMask, desired)) return desired;
             for (int s = (int)desired - 1; s >= 0; s--)
-                if ((builtMask & (1 << s)) != 0) return (MapSize)s;
-            for (int s = (int)desired + 1; s <= (int)MapSize.Large; s++)
-                if ((builtMask & (1 << s)) != 0) return (MapSize)s;
+                if (IsBuilt(builtMask, (MapSize)s)) return (MapSize)s;
+            for (int s = (int)desired + 1; s < Count; s++)
+                if (IsBuilt(builtMask, (MapSize)s)) return (MapSize)s;
             return desired; // unreachable while builtMask != 0
+        }
+    }
+
+    // One map's sizes and their player brackets, as the host needs them to pick
+    // the round's size. Plain ints so the host phase machine stays engine-free.
+    public readonly struct MapSizeBrackets
+    {
+        // Bit i = MapSize i is built. 0 = a one-size map: every tier counts as
+        // built for the pick (the answer only feeds the lobby browser there,
+        // the loaded scene has nothing to toggle).
+        public readonly int BuiltMask;
+        private readonly int[] _maxPlayers;
+
+        public static MapSizeBrackets Default => new MapSizeBrackets(0, null);
+
+        /// <param name="maxPlayers">Per tier, indexed by MapSize. Missing or
+        /// short arrays fall back to the defaults. Sanitized: each built size
+        /// ends at least one player after the built size below it, so no built
+        /// size is unreachable.</param>
+        public MapSizeBrackets(int builtMask, int[] maxPlayers)
+        {
+            BuiltMask = builtMask & ((1 << MapSizeRules.Count) - 1);
+            _maxPlayers = new int[MapSizeRules.Count];
+            int floor = MapSizeRules.MinThreshold - 1;
+            foreach (MapSize s in MapSizeRules.All)
+            {
+                int i = (int)s;
+                int v = maxPlayers != null && i < maxPlayers.Length ? maxPlayers[i] : MapSizeRules.DefaultMaxPlayers(s);
+                if (!Considered(s)) { _maxPlayers[i] = v; continue; }
+                if (v <= floor) v = floor + 1;
+                _maxPlayers[i] = v;
+                floor = v;
+            }
+        }
+
+        private bool Considered(MapSize s) => BuiltMask == 0 || MapSizeRules.IsBuilt(BuiltMask, s);
+
+        /// <summary>The sanitized bracket of one size (meaningless for an unbuilt
+        /// size, and ignored for the largest built one).</summary>
+        public int MaxPlayers(MapSize size) =>
+            _maxPlayers != null ? _maxPlayers[(int)size] : MapSizeRules.DefaultMaxPlayers(size);
+
+        /// <summary>The smallest built size whose bracket holds this many
+        /// players; past every bracket, the largest built size.</summary>
+        public MapSize ForPlayers(int players)
+        {
+            MapSize largest = MapSize.Medium;
+            bool any = false;
+            foreach (MapSize s in MapSizeRules.All)
+            {
+                if (!Considered(s)) continue;
+                any = true;
+                largest = s;
+                if (players <= MaxPlayers(s)) return s;
+            }
+            return any ? largest : MapSize.Medium;
         }
     }
 }

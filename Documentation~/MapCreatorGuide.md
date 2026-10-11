@@ -123,9 +123,11 @@ _CoverUpMap                [MapConfig, MapSizeVariants, WorkshopMapInfo]
 │   ├── Fixtures            spawn disc, the arena sun — the map breaks without these
 │   └── Content             your geometry and props
 ├── Sizes                   (optional) size variants
-│   ├── Small               bounds + doors for the small build
+│   ├── Tiny                bounds + doors for the tiny build (build any subset)
+│   ├── Small
 │   ├── Medium
-│   └── Large
+│   ├── Large
+│   └── Huge
 └── Reference               (optional) scale dolls — stripped at export, never ships
 ```
 
@@ -147,9 +149,13 @@ there, moving nothing out of the scene and deleting nothing.
   The disc is a footprint: players land anywhere inside its radius, so the whole radius plus
   half a body (0.4 m) has to sit inside the bounds, on ground that is about level with the
   centre. Validate Map says so when a disc by a shore or a ledge reaches past either.
-- **`MapSizeVariants`** (optional) — small/medium/large variants of the same map;
-  smaller sizes *add* doors/boundaries. Bounds volumes live **only** inside the size
-  roots, never in `Base`. On a one-size map they belong in `Base/Fixtures`.
+- **`MapSizeVariants`** (optional): up to five sizes of the same map, Tiny, Small, Medium,
+  Large and Huge. Build any of them; smaller sizes *add* doors/boundaries. Each size has a
+  **Root** and a **Max Players**: the most players it runs for. The game picks the smallest
+  size you built whose Max Players fits the players in the round; the largest size you built
+  takes everyone above that, so its own number is ignored. Hosts can't override the pick.
+  Defaults: Tiny 5, Small 10, Medium 22, Large 40. Bounds volumes live **only** inside the
+  size roots, never in `Base`. On a one-size map they belong in `Base/Fixtures`.
 - **`MapKeepOutVolume`** (optional): a velvet rope, a box that one side may not enter. See
   **Velvet ropes: keeping one side out** below.
 - **`WorkshopMapInfo`** — title, description, tags, preview image (read into
@@ -496,7 +502,7 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.18.0"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.19.0"`.
    (By default both the game and the SDK use `~/CoverUpMaps` (Linux/macOS) or
    `Documents\CoverUpMaps` (Windows), with the SDK exporting into its `local/`
    subfolder, so no path setup is needed. To relocate, see *Changing the folder* above.)

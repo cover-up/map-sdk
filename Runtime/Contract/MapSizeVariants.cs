@@ -1,3 +1,4 @@
+using System;
 using CoverUp.Core;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -6,30 +7,41 @@ namespace CoverUp.Gameplay
 {
     /// <summary>
     /// Optional per-map component, sibling to <see cref="MapConfig"/> on the
-    /// <c>_CoverUpMap</c> root. Holds the three size-variant roots; the loader
-    /// activates exactly one for the round (the host-resolved size, clamped to
-    /// what this map built) and deactivates the others. A map WITHOUT this
+    /// <c>_CoverUpMap</c> root. Holds up to five size-variant roots (Tiny to
+    /// Huge), each with the most players it runs for; the loader activates
+    /// exactly one for the round (the host's pick for the player count, clamped
+    /// to what this map built) and deactivates the others. A map WITHOUT this
     /// component is a one-size map and behaves exactly as before.
     ///
     /// Authoring / Workshop contract:
     ///   • <see cref="MapBoundsVolume"/>s live ONLY inside these roots, never in
     ///     Base — clamping is the union of ACTIVE volumes, so a Base volume would
     ///     leak the largest extent into every size.
-    ///   • The spawn disc stays in Base (Small always contains spawn).
+    ///   • The spawn disc stays in Base (the smallest size always contains spawn).
     ///   • Smaller sizes ADD doors/blockers; nothing is removed.
     /// The Validate Map editor menu enforces these.
     /// </summary>
     public sealed class MapSizeVariants : MonoBehaviour
     {
-        [SerializeField]
-        [Tooltip("Root for the Small variant (bounds + doors). Leave empty if this map has no Small build.")]
-        private GameObject small;
-        [SerializeField]
-        [Tooltip("Root for the Medium variant. Leave empty if this map has no Medium build.")]
-        private GameObject medium;
-        [SerializeField]
-        [Tooltip("Root for the Large variant. Leave empty if this map has no Large build.")]
-        private GameObject large;
+        /// <summary>One size slot: its root, and the most players it runs for.</summary>
+        [Serializable]
+        public struct Variant
+        {
+            [Tooltip("Root for this size (bounds + doors). Leave empty if this map has no build at this size.")]
+            public GameObject root;
+
+            [Tooltip("The most players this size runs for. More than this goes to the next size up. " +
+                     "Ignored on the largest size this map builds, which takes everyone above.")]
+            public int maxPlayers;
+
+            public Variant(int maxPlayers) { root = null; this.maxPlayers = maxPlayers; }
+        }
+
+        [SerializeField] private Variant tiny = new Variant(MapSizeRules.DefaultMaxPlayers(MapSize.Tiny));
+        [SerializeField] private Variant small = new Variant(MapSizeRules.DefaultMaxPlayers(MapSize.Small));
+        [SerializeField] private Variant medium = new Variant(MapSizeRules.DefaultMaxPlayers(MapSize.Medium));
+        [SerializeField] private Variant large = new Variant(MapSizeRules.DefaultMaxPlayers(MapSize.Large));
+        [SerializeField] private Variant huge = new Variant(MapSizeRules.DefaultMaxPlayers(MapSize.Huge));
 
         [SerializeField]
         [Tooltip("Editor/solo-play only: the size to show when this scene is played on its own " +
@@ -37,28 +49,32 @@ namespace CoverUp.Gameplay
                  "the loader applies the host-resolved size at door-open. Preview Size keeps this in sync.")]
         private MapSize soloWalkSize = MapSize.Medium;
 
-        [SerializeField]
-        [Tooltip("AUTO size only: the most players this map still wants to run Small for. " +
-                 "Above this it goes Medium. Ignored when the host forces a size in the lobby.")]
-        private int smallMaxPlayers = MapSizeRules.DefaultSmallMaxPlayers;
+        private ref Variant Slot(MapSize size)
+        {
+            switch (size)
+            {
+                case MapSize.Tiny: return ref tiny;
+                case MapSize.Small: return ref small;
+                case MapSize.Medium: return ref medium;
+                case MapSize.Large: return ref large;
+                default: return ref huge;
+            }
+        }
 
-        [SerializeField]
-        [Tooltip("AUTO size only: the most players this map still wants to run Medium for. " +
-                 "Above this it goes Large. Must be greater than Small Max Players.")]
-        private int mediumMaxPlayers = MapSizeRules.DefaultMediumMaxPlayers;
-
-        /// <summary>The map's own auto-size brackets, sanitized. Read by the
-        /// host before it resolves the round's size; a map that leaves these
-        /// alone gets the shipped defaults and behaves exactly as before.</summary>
-        public (int SmallMax, int MediumMax) AutoThresholds
+        /// <summary>The map's sizes and their player brackets, sanitized. Read
+        /// by the host before it picks the round's size.</summary>
+        public MapSizeBrackets Brackets
         {
             get
             {
-                int s = smallMaxPlayers, m = mediumMaxPlayers;
-                MapSizeRules.Sanitize(ref s, ref m);
-                return (s, m);
+                var max = new int[MapSizeRules.Count];
+                foreach (MapSize s in MapSizeRules.All) max[(int)s] = Slot(s).maxPlayers;
+                return new MapSizeBrackets(BuiltMask, max);
             }
         }
+
+        /// <summary>The authored (unsanitized) bracket of one size, for the validator.</summary>
+        public int AuthoredMaxPlayers(MapSize size) => Slot(size).maxPlayers;
 
         // Solo/editor path (Walk Through, solo Play → scene loaded single/active):
         // pick a single size so authored-active roots don't overlap. Mirrors
@@ -70,12 +86,7 @@ namespace CoverUp.Gameplay
             if (gameObject.scene == SceneManager.GetActiveScene()) Apply(soloWalkSize);
         }
 
-        public GameObject Root(MapSize size) => size switch
-        {
-            MapSize.Small => small,
-            MapSize.Medium => medium,
-            _ => large,
-        };
+        public GameObject Root(MapSize size) => Slot(size).root;
 
         /// <summary>Bit i set = MapSize i is built (its root is assigned).</summary>
         public int BuiltMask
@@ -83,9 +94,8 @@ namespace CoverUp.Gameplay
             get
             {
                 int mask = 0;
-                if (small != null) mask |= 1 << (int)MapSize.Small;
-                if (medium != null) mask |= 1 << (int)MapSize.Medium;
-                if (large != null) mask |= 1 << (int)MapSize.Large;
+                foreach (MapSize s in MapSizeRules.All)
+                    if (Slot(s).root != null) mask |= 1 << (int)s;
                 return mask;
             }
         }
@@ -103,9 +113,7 @@ namespace CoverUp.Gameplay
             int built = BuiltMask;
             if (built == 0) return desired;
             MapSize chosen = MapSizeRules.Clamp(desired, built);
-            SetActiveSafe(small, chosen == MapSize.Small);
-            SetActiveSafe(medium, chosen == MapSize.Medium);
-            SetActiveSafe(large, chosen == MapSize.Large);
+            foreach (MapSize s in MapSizeRules.All) SetActiveSafe(Slot(s).root, s == chosen);
             return chosen;
         }
 

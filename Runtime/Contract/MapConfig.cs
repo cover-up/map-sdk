@@ -49,7 +49,8 @@ namespace CoverUp.Gameplay
     {
         /// <summary>No gulls.</summary>
         None = 0,
-        /// <summary>Circle over the sea and perch only outside the land. Default.</summary>
+        /// <summary>Spawn over the sea; perch only on things standing at or in the water (rocks, wrecks,
+        /// anything on the shore), never inland. Default.</summary>
         Offshore = 1,
         /// <summary>The lobby island's behaviour: perch anywhere flat.</summary>
         Everywhere = 2,
@@ -114,10 +115,24 @@ namespace CoverUp.Gameplay
         private MapWildlife wildlife = MapWildlife.Normal;
 
         [SerializeField]
-        [Tooltip("Where gulls may fly. Offshore keeps them over the sea and off the land, so they never " +
-                 "draw a seeker's eye to a hiding spot. None removes them. Everywhere lets them perch on " +
-                 "anything flat, as on the lobby island.")]
+        [Tooltip("Where gulls may fly. Offshore spawns them over the sea and lets them land only on things " +
+                 "at or in the water (rocks, wrecks, the shore), never inland, so they never draw a seeker's " +
+                 "eye to a hiding spot. None removes them. Everywhere lets them perch on anything flat, as on " +
+                 "the lobby island.")]
         private MapGulls gulls = MapGulls.Offshore;
+
+        [SerializeField]
+        [Range(0f, GameScale.MaxScale)]
+        [Tooltip("Size of the wildlife (crabs, fish, small animals, gulls and the high flocks) relative to the " +
+                 "1:1 world, like the hider and hunter scales. 0 = Auto: the hunter scale, which keeps the lobby " +
+                 "island's proportion between critters and the hunter. Flight heights follow it; how far away " +
+                 "critters are drawn does not.")]
+        private float critterScale = 0f;
+
+        [SerializeField]
+        [Tooltip("Gull calls: the lobby island's birdsong, heard from where the gulls are, in rare short bursts. " +
+                 "Needs Gulls to be other than None.")]
+        private bool gullCalls = true;
 
         /// <summary>True when the map opted out of the grey world outside its bounds.</summary>
         public bool ColourOutsideBounds => colourOutsideBounds;
@@ -137,6 +152,16 @@ namespace CoverUp.Gameplay
 
         /// <summary>Where gulls may fly on this map.</summary>
         public MapGulls Gulls => gulls;
+
+        /// <summary>The authored critter scale; 0 = Auto (SDK 0.18).</summary>
+        public float CritterScaleAuthored => critterScale;
+
+        /// <summary>The critter scale the game uses: the authored value, or the hunter scale when Auto
+        /// (SDK 0.18). Clamped to the same guard rails as the player scales.</summary>
+        public float CritterScale => Mathf.Clamp(critterScale > 0f ? critterScale : hunterScale, GameScale.MinScale, GameScale.MaxScale);
+
+        /// <summary>Whether gull calls play on this map (SDK 0.18).</summary>
+        public bool GullCalls => gullCalls;
 
         /// <summary>The camera this map forces on the hunter, or
         /// <see cref="MapHunterCamera.Auto"/> to leave the player's toggle alone.</summary>

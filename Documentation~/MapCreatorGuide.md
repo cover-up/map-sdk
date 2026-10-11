@@ -346,15 +346,22 @@ sleep at which size.
 
 Island maps get the lobby island's ambient life for free. There is nothing to place: the game
 reads your geometry when the map loads and seeds crabs on low ground near water, fish under the
-sea and in your water volumes, geckos, muskrats and sparrows on open ground, and gulls in the
-air. A map with no beach simply has no crabs.
+sea and in your water volumes, geckos, muskrats and sparrows on open ground, gulls in the
+air, and the lobby island's high flocks circling over your land (always under the top of your
+bounds). A map with no beach simply has no crabs. Birds keep their colour over the clay.
 
-Two fields on `MapConfig` are the whole authoring:
+Four fields on `MapConfig` are the whole authoring:
 
 - **Wildlife**: `None`, `Sparse`, `Normal` (the lobby island's density, scaled to your land
-  area) or `Lush` (twice that).
-- **Gulls**: `None`, `Offshore` (over the sea only, never perching on the land, so a bird never
-  draws a seeker's eye to a hiding spot) or `Everywhere`.
+  area) or `Lush` (twice that). Sparse has one high flock, Normal and Lush two.
+- **Gulls**: `None`, `Offshore` (spawning over the sea and landing only on things at or in the
+  water, such as rocks, wrecks and pieces on the shore, never inland, so a bird never draws a
+  seeker's eye to a hiding spot) or `Everywhere` (anything flat, as on the lobby island).
+- **Critter Scale** (0.18): the wildlife's size against the 1:1 world, like the hider and hunter
+  scales. `0` = Auto, the hunter scale, which keeps the lobby island's proportion between the
+  critters and the hunter. Flight heights follow it.
+- **Gull Calls** (0.18): the lobby island's gull calls, heard from where the gulls are. On by
+  default.
 
 Critters are local to each player and never affect scoring. The player's own Island Life
 setting can still turn them all off.
@@ -489,7 +496,7 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.17.1"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.18.0"`.
    (By default both the game and the SDK use `~/CoverUpMaps` (Linux/macOS) or
    `Documents\CoverUpMaps` (Windows), with the SDK exporting into its `local/`
    subfolder, so no path setup is needed. To relocate, see *Changing the folder* above.)

@@ -110,10 +110,25 @@ namespace CoverUp.EditorTools
             SerializedProperty gulls = serializedObject.FindProperty("gulls");
             EditorGUILayout.PropertyField(wildlife, new GUIContent("Density"));
             EditorGUILayout.PropertyField(gulls, new GUIContent("Gulls"));
+            if (wildlife.enumValueIndex != (int)MapWildlife.None)
+            {
+                // SDK 0.18: critter size beside the player scales, Auto = the hunter scale (the lobby
+                // island's proportion); and the gull calls switch.
+                SerializedProperty critter = serializedObject.FindProperty("critterScale");
+                SerializedProperty hunterS = serializedObject.FindProperty("hunterScale");
+                EditorGUILayout.PropertyField(critter, new GUIContent("Critter Scale"));
+                float effective = critter.floatValue > 0f ? critter.floatValue : hunterS.floatValue;
+                EditorGUILayout.LabelField(" ", critter.floatValue > 0f
+                    ? $"{effective:0.###} (a gull about {0.55f * effective:0.##} m long)"
+                    : $"Auto: the hunter scale, {effective:0.###} (a gull about {0.55f * effective:0.##} m long)", EditorStyles.miniLabel);
+                if (gulls.enumValueIndex != (int)MapGulls.None)
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("gullCalls"), new GUIContent("Gull Calls"));
+            }
             EditorGUILayout.HelpBox(
                 "Nothing to place: crabs find your beaches, fish your water (the sea, and any "
-                + "MapWaterVolume), the small animals your open ground. A map with no beach has no "
-                + "crabs. The player's Island Life setting can still turn all of it off.",
+                + "MapWaterVolume), the small animals your open ground, offshore gulls the rocks and "
+                + "wrecks at your waterline, and the high flocks circle over your land. A map with no "
+                + "beach has no crabs. The player's Island Life setting can still turn all of it off.",
                 MessageType.None);
 
             serializedObject.ApplyModifiedProperties(); // routes through OnValidate → live preview

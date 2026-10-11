@@ -3,6 +3,27 @@
 All notable changes to the Cover Up! Map SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this package uses semantic versioning.
 
+## [0.18.0] - 2026-10-11
+
+### Added
+- **`MapConfig.critterScale`**: the wildlife's size relative to the 1:1 world, beside the hider and
+  hunter scales (shown when Wildlife is not None). 0 = **Auto, the hunter scale**, which keeps the
+  lobby island's proportion between critters and the hunter. Flight heights follow it; how far
+  away critters are drawn does not. Older builds sized map critters by the hider scale.
+- **`MapConfig.gullCalls`** (default on): the lobby island's gull calls, heard from where the
+  gulls are, in rare short bursts. Shown when Gulls is not None.
+- **High flocks over maps:** the lobby island's circling flocks now fly over a map too, on a
+  circuit taken from the map's own land (its middle and reach inside the bounds), at heights by
+  the critter scale, always under the top of the bounds. Sparse one flock, Normal and Lush two,
+  none without wildlife. Nothing to author.
+
+### Changed
+- **Offshore gulls perch.** They still spawn over the sea, and now land on things standing at or
+  in the water (rocks, wrecks, anything on the shore), never inland. A perch is the real top of
+  the piece, found by rays, never the middle of its box (an arch has air there).
+- **Birds keep their colour outside the bounds.** Gulls and flocks are drawn after the grey
+  "outside the bounds" pass, so a bird over the sea past the fence is never a grey blob.
+
 ## [0.17.1] - 2026-10-10
 
 ### Changed

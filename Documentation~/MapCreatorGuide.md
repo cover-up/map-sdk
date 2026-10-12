@@ -348,6 +348,28 @@ no prompt, and the host refuses it. That is how a pair in Base opts out of Small
 pad where only Medium and Large reach, and Small never shows it. Validate Map says which pairs
 sleep at which size.
 
+### Running water
+
+For a fountain's spout, a pipe or a small waterfall, add an empty object with a **`MapWaterStream`**
+where the water starts. With no **Channel**, the water leaves along the object's blue +Z arrow; to
+make it run along a surface first (inside a mouth, down a chute), add empty child objects at the
+points it should pass and drop them into **Channel** in order: it leaves the last one in the direction
+of the last segment. **Speed** is how fast it leaves (about 1 m/s for a spout), **Radius** its
+thickness where it leaves. It falls along a true arc until it meets anything solid or the surface of a
+`MapWaterVolume` (put one in the basin it falls into), and the game draws the running water, drops,
+a splash, rings and foam there, plus a soft trickle (**Sound**, **Volume**). Select the object to see
+its path. Nothing collides with the water, and the Particle effects setting thins the drops.
+
+### Motes of light
+
+For a place that should feel alive or a little magical, add an empty object with a
+**`MapMotes`** where the ground is: the game drifts soft glowing dots across a round patch
+(**Radius**) that rise through **Height** metres, wander and fade, the same soft dots as over the
+hub island's bouncy mushroom. **Colour** is warm yellow by default; **Amount** runs from a gentle
+drift (0.5) to a busy swarm (1). Every player's Particle effects setting thins them further or
+turns them off, so never make one carry gameplay. Under a size root the motes exist only at
+that size.
+
 ### Wildlife
 
 Island maps get the lobby island's ambient life for free. There is nothing to place: the game
@@ -502,7 +524,7 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.19.0"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.21.0"`.
    (By default both the game and the SDK use `~/CoverUpMaps` (Linux/macOS) or
    `Documents\CoverUpMaps` (Windows), with the SDK exporting into its `local/`
    subfolder, so no path setup is needed. To relocate, see *Changing the folder* above.)

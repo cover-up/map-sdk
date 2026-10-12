@@ -3,6 +3,25 @@
 All notable changes to the Cover Up! Map SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this package uses semantic versioning.
 
+## [0.21.0] - 2026-10-11
+
+### Added
+- **`MapWaterStream`: running water.** A fountain's spout, a pipe, a little waterfall. The water starts at
+  the object, runs along optional **Channel** points (the inside of a mouth, a chute), leaves the last
+  one and falls along a true arc until it meets a collider or a `MapWaterVolume`'s surface. **Radius**
+  and **Speed** set its size and force; it thins as it falls. The game draws the running water, drops
+  breaking off, a splash, spreading rings and foam where it lands, and (with **Sound**) a soft trickle.
+  Visual only; the Particle effects setting thins the drops and the splash. The gizmo draws the path.
+
+## [0.20.0] - 2026-10-11
+
+### Added
+- **`MapMotes`: drifting motes of light.** A round patch (Radius, centred on the object) where the
+  game drifts soft glowing dots that rise through Height metres, wander and fade, like the ones
+  over the hub island's bouncy mushroom. Colour (warm yellow by default) and Amount are yours;
+  the player's Particle effects setting thins them or turns them off. Pure data: the game draws
+  them. Under a size root the motes exist only at that size.
+
 ## [0.19.0] - 2026-10-11
 
 ### Changed

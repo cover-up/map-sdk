@@ -41,7 +41,7 @@ namespace CoverUp.EditorTools
             _waterFromEnvironment = EditorGUILayout.Toggle("Water level from MapEnvironment", _waterFromEnvironment);
             MapEnvironment env = _waterFromEnvironment ? MapEnvironment.FindInScene(poly.gameObject.scene) : null;
             using (new EditorGUI.DisabledScope(env != null))
-                _waterY = EditorGUILayout.FloatField("Water level (world Y)", env != null ? env.SeaLevel : _waterY);
+                _waterY = EditorGUILayout.FloatField("Water level (world Y)", env != null ? MapEnvironment.SeaLevel : _waterY);
             _depth = EditorGUILayout.FloatField("Depth at the fence (m)", _depth);
             _offset = EditorGUILayout.FloatField("Push out by (m)", _offset);
             _step = Mathf.Max(0.1f, EditorGUILayout.FloatField("Sample step (m)", _step));
@@ -49,7 +49,7 @@ namespace CoverUp.EditorTools
             _extent = Mathf.Max(5f, EditorGUILayout.FloatField("Search radius (m)", _extent));
             if (GUILayout.Button("Trace outline"))
             {
-                float water = env != null ? env.SeaLevel : _waterY;
+                float water = env != null ? MapEnvironment.SeaLevel : _waterY;
                 Trace(poly, water - _depth, _offset, _step, _tolerance, _extent);
             }
         }

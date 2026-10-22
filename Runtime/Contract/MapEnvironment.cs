@@ -4,22 +4,24 @@ using UnityEngine.SceneManagement;
 namespace CoverUp.Gameplay
 {
     /// <summary>
-    /// Asks the game for the lobby island's sky and sea around a map. The map carries
-    /// only this marker: the sky material, the water shader and its mesh all live in
-    /// the game build, so an outdoor map gets both without shipping a byte of either.
+    /// Asks the game for the lobby island's sky around a map. The map carries only
+    /// this marker: the sky material lives in the game build, so an outdoor map gets
+    /// it without shipping a byte of it.
     ///
-    /// Put it on an empty object and move that object to where the water surface
-    /// should be: its world Y is the sea level, its XZ the middle of the sea. The sea
-    /// is an endless flat plane with no collider, so keep players out of it with the
-    /// map's bounds. Shots do land on it.
+    /// THE SEA IS NOT A CHOICE. Every map is an island (SDK 0.22, Docs/OneSeaDesign.md):
+    /// the game draws one endless sea at the map's local Y 0, the same sea the lobby
+    /// island stands in 850 m away, and whatever the map builds rises from it. Build
+    /// the land above 0 and draw the bounds in knee-deep water, the way the hub does.
+    /// The sea has no collider; shots do land on it. A dry floor below 0 (a cave, a
+    /// basement) needs a sea hole over it (MapSeaHole, SDK 0.22). This object's
+    /// position no longer matters; the gizmo draws the sea where it will be.
     ///
     /// Lighting is not touched. The sun and the flat ambient stay the arena standard,
-    /// so camouflage reads the same under this sky as under any other, and fog stays
-    /// off as on every map. In the editor the sea is drawn as a gizmo only; the sky
-    /// shows in the game.
+    /// so camouflage reads the same under this sky as under any other. Haze past the
+    /// playable reach is the game's.
     ///
-    /// One per scene. A game build older than SDK 0.14.0 ignores the marker and shows
-    /// the map with whatever sky the scene itself carries.
+    /// One per scene. Earlier SDKs let this marker place the sea and switch it off; a
+    /// scene saved with those settings loads fine, the sea is simply at 0 and on.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class MapEnvironment : MonoBehaviour
@@ -28,15 +30,10 @@ namespace CoverUp.Gameplay
         [Tooltip("Show the lobby island's sky instead of the scene's own skybox.")]
         private bool islandSky = true;
 
-        [SerializeField]
-        [Tooltip("Show the lobby island's sea as an endless plane at this object's height.")]
-        private bool sea = true;
-
         public bool IslandSky => islandSky;
-        public bool Sea => sea;
 
-        /// <summary>World Y of the water surface.</summary>
-        public float SeaLevel => transform.position.y;
+        /// <summary>World Y of the water surface: the map's local 0, always.</summary>
+        public const float SeaLevel = 0f;
 
         public static MapEnvironment FindInScene(Scene scene)
         {
@@ -52,12 +49,11 @@ namespace CoverUp.Gameplay
 #if UNITY_EDITOR
         private void OnDrawGizmos()
         {
-            if (!sea) return;
-            Vector3 p = transform.position;
+            Vector3 p = new Vector3(0f, SeaLevel, 0f);
             Gizmos.color = new Color(0.10f, 0.45f, 0.70f, 0.35f);
-            Gizmos.DrawCube(p, new Vector3(400f, 0.01f, 400f));
+            Gizmos.DrawCube(p, new Vector3(600f, 0.01f, 600f));
             Gizmos.color = new Color(0.10f, 0.45f, 0.70f, 0.9f);
-            Gizmos.DrawWireCube(p, new Vector3(400f, 0.01f, 400f));
+            Gizmos.DrawWireCube(p, new Vector3(600f, 0.01f, 600f));
         }
 #endif
     }

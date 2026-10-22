@@ -1295,14 +1295,13 @@ namespace CoverUp.EditorTools
             if (environments.Count == 0) return;
             if (environments.Count > 1)
                 warnings.Add($"{environments.Count} MapEnvironment components: the game reads only the first it finds. Keep one.");
-            MapEnvironment env = environments[0];
-            if (!env.Sea) return;
+            // The sea is at local Y 0 on every map (SDK 0.22, one sea with the hub).
             foreach (MapSpawnDisc sp in spawns)
             {
-                if (sp.transform.position.y > env.SeaLevel + 0.3f) continue;
-                warnings.Add($"MapEnvironment's sea level ({env.SeaLevel:0.00}) is at or above MapSpawnDisc " +
+                if (sp.transform.position.y > MapEnvironment.SeaLevel + 0.3f) continue;
+                warnings.Add($"The sea (Y {MapEnvironment.SeaLevel:0.00}) is at or above MapSpawnDisc " +
                     $"'{Path(sp.transform)}' ({sp.transform.position.y:0.00}). The sea has no collider, so players " +
-                    "would land under water. Lower the MapEnvironment object: its height is the water surface.");
+                    "would land under water. Raise the land: the map's local Y 0 is the water surface.");
                 break;
             }
         }

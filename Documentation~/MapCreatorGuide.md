@@ -285,28 +285,59 @@ see their own body, and props are where that happens.
 The example map marks its floor, perimeter, dividers and door plugs, and leaves the
 `Painting` on the north wall unmarked.
 
-### The island's sky and sea
+### Every map is an island
 
-An outdoor map can borrow the lobby island's sky and its sea. Add an empty object, put a
-**`MapEnvironment`** on it, and move it to where the water surface should be: the object's
-height is the sea level, and the sea spreads out from it as an endless flat plane.
+Every map stands in one endless sea, the same sea the lobby island stands in. The lobby
+island is 600 m away across the water, and between rounds the players there see your island
+on the horizon. So the rules are simple:
 
-- **Nothing ships in your map.** The sky and the water live in the game, so the marker
-  adds no size to your package. In the editor the sea is drawn as a blue gizmo plane; the
-  real water and sky appear in the game.
-- **Two switches**: `Island Sky` and `Sea`. Use either or both.
-- **Lighting does not change.** The sun and the flat ambient stay the arena standard, and
-  fog stays off, so camouflage reads the same as on any other map.
-- **The sea has no collider.** Players fall through it, so keep them out with your
-  `MapBoundsVolume`. Shots do land on it, with a splash.
-- **Keep the surface at least 0.3 m below any place players stand.** Validate Map warns
-  when it reaches a spawn disc.
-- Needs a game build that knows SDK 0.14.0. An older build ignores the marker and shows
-  whatever sky your scene has.
+- **The sea is at your scene's Y 0, always.** It is drawn by the game, it has no collider,
+  and you cannot move it or switch it off. Build your land so it rises out of it: keep every
+  floor players stand on above 0, and draw your bounds in knee-deep water at the coast, the
+  way the lobby island does. Shots land on the sea with a splash.
+- **Start from the starter island.** The map template opens on `starter_island`: sand rising
+  from clear shallows, the bounds as outlines in knee-deep water, spawns, the sun, the island
+  sky, Tiny and Small built, and one open-sided shed. Build on it or replace the land.
+  `Cover Up! > Maps > Create Starter Island` makes a fresh copy.
+- **Keep the land inside the box.** Validate Map warns when any land reaches past 256 m from
+  the origin: the island is still surrounded by sea, but from the lobby it reads as a wall.
+- **A dry floor below the water needs a sea hole.** A cave, a basement or a sunken courtyard
+  below Y 0 would show water over it. Add a **`MapSeaHole`** and drag its corners round that
+  floor in the scene view: inside the outline the sea is not drawn, not landed on and not
+  waded in, and the edge of the hole foams like a coast. Any number of holes; each must stay
+  within 300 m of the origin. Validate Map errors on a hole with fewer than 3 corners or one
+  past 300 m, and warns when the ground inside a hole is not below the water anyway.
+- **Haze is the game's.** Your scene's own fog stays off, as on every map, so camouflage reads
+  the same everywhere. Past the furthest corner of your bounds the game adds a soft horizon
+  haze, so the far sea and the lobby island fade into the sky. Nothing inside your bounds is
+  ever hazed.
+
+### The island's sky
+
+Add an empty object with a **`MapEnvironment`** and your map gets the lobby island's sky. It
+ships in the game, so it adds nothing to your package. The sun and the flat ambient stay the
+arena standard, so camouflage reads the same under it. Without the marker your map keeps the
+sky your scene carries. Where the object sits no longer matters: the sea is at 0 either way.
+A scene saved with an older SDK, where this marker placed or switched off the sea, loads fine.
+
+### Weather
+
+The host rolls the weather for the whole lobby, and the lobby island shows it: clear spells,
+light showers, a downpour now and then, fog banks. On **`MapConfig`** you choose which of it
+reaches your map:
+
+- **`Weather`**: `Rain`, `Fog` and `Snow` flags, any mix, or none (the default). A kind you do
+  not tick is simply clear on your map. Rain covers drizzle, showers, downpours and squalls.
+- **`Weather Intensity`**: a ceiling, not a constant. Each roll's strength is scaled by it,
+  so at 0.5 the hardest downpour on your map is half the lobby's, and a light shower is lighter
+  still. It never rains all the time because the slider is high.
+
+The weather is the same on every player's screen and changes with the lobby's. The map's
+listing carries the flags, so a browser can show a rain or fog chip before download.
 
 ### Water you can wade in
 
-The sea comes with `MapEnvironment`. For any other water, a pool, a pond, a fountain basin, add
+The sea is always there (see *Every map is an island*). For any other water, a pool, a pond, a fountain basin, add
 an empty object with a **`MapWaterVolume`** and scale it over the water: it is a plain box, and
 its **top face is the surface**. Inside it a player is wading: the footsteps change, ripples
 follow them, and the wildlife knows there is water (fish in it, crabs along the rim). The game
@@ -524,7 +555,7 @@ than an afterthought.
    [map-template](https://github.com/cover-up/map-template) repo (a bare URP project
    referencing `com.coverup.mapsdk` by git URL) and open it in Unity 6000.5. Or add the
    package to your own URP project's `Packages/manifest.json`:
-   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.21.0"`.
+   `"com.coverup.mapsdk": "https://github.com/cover-up/map-sdk.git#v0.22.0"`.
    (By default both the game and the SDK use `~/CoverUpMaps` (Linux/macOS) or
    `Documents\CoverUpMaps` (Windows), with the SDK exporting into its `local/`
    subfolder, so no path setup is needed. To relocate, see *Changing the folder* above.)

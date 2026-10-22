@@ -10,7 +10,7 @@ namespace CoverUp.Gameplay
     ///
     /// THE SEA IS NOT A CHOICE. Every map is an island (SDK 0.22, Docs/OneSeaDesign.md):
     /// the game draws one endless sea at the map's local Y 0, the same sea the lobby
-    /// island stands in 850 m away, and whatever the map builds rises from it. Build
+    /// island stands in 600 m away, and whatever the map builds rises from it. Build
     /// the land above 0 and draw the bounds in knee-deep water, the way the hub does.
     /// The sea has no collider; shots do land on it. A dry floor below 0 (a cave, a
     /// basement) needs a sea hole over it (MapSeaHole, SDK 0.22). This object's

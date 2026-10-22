@@ -3,6 +3,42 @@
 All notable changes to the Cover Up! Map SDK. Format follows
 [Keep a Changelog](https://keepachangelog.com/); this package uses semantic versioning.
 
+## [0.22.0] - 2026-10-22
+
+Every map is an island in one sea: the lobby island's sea, 600 m across the water, so players
+in the lobby see your map on the horizon.
+
+### Changed
+- **The sea is fixed at the scene's Y 0, always on.** `MapEnvironment` no longer places or
+  switches the sea: its `Sea` toggle is gone and its position no longer matters
+  (`MapEnvironment.SeaLevel` is the constant 0). A scene saved with the old settings loads
+  fine, the sea is simply at 0 and on. **Rebase a map whose water was elsewhere**: move the
+  land so the coast meets Y 0.
+- **Horizon haze past the bounds.** A map's own fog stays off; the game adds a soft haze past
+  the furthest corner of the bounds (`MapBounds.ReachXZ`), so the far sea and the lobby island
+  blend into the sky. Nothing inside the bounds is hazed.
+- `MapEnvironment` is now only the island sky's marker.
+
+### Added
+- **`MapSeaHole`: dry floors below the water.** A closed outline (corners dragged in the scene
+  view) where the sea is not drawn, not landed on and not waded in, for a cave, a basement or a
+  sunken courtyard below Y 0. Any number; each within 300 m of the origin (`SeaDiscRadius`).
+- **`MapConfig.Weather` and `Weather Intensity`.** `MapWeather` flags (Rain, Fog, Snow) choose
+  which of the host's weather rolls reach the map; the intensity is a ceiling scaling each roll.
+  Default: none. The manifest (`map.json`) carries `weather` and `weatherIntensity` (advisory).
+- **Starter island.** `Cover Up! > Maps > Create Starter Island` builds `starter_island`: a small
+  sand island in clear shallows, outline bounds in knee-deep water, spawns, the sun, the island
+  sky, Tiny and Small, an open-sided shed. The map template ships it. The corridor example is
+  now **Create Example Sized Map (legacy)**.
+- **Validate Map**: errors on a sea hole with fewer than 3 corners or past 300 m; warns when the
+  ground inside a hole is not below the water, when the sea is at or above a spawn disc, and
+  when land reaches past the 256 m box edge (from the lobby it reads as a wall).
+
+### Fixed
+- **Map bundles keep the linear fog variants.** Automatic fog stripping removed them from a map
+  bundle, so the game's haze and rain fog never reached a map's materials. The exporter now keeps
+  linear fog for the build and restores your setting after.
+
 ## [0.21.0] - 2026-10-11
 
 ### Added

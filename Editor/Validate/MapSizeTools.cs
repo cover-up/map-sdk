@@ -173,6 +173,7 @@ namespace CoverUp.EditorTools
             var outlines = FindAllInScene<MapBoundsPolygon>(scene);
             var keepOuts = FindAllInScene<MapKeepOutVolume>(scene);
             CheckOutlines(outlines, errors, warnings);
+            CheckSeaHoles(scene, errors, warnings);
 
             // Size roots, hoisted out of the sized-map branch below: the grouping
             // checks need to know which objects are size roots (they belong under
@@ -751,6 +752,36 @@ namespace CoverUp.EditorTools
 
         /// <summary>A drawn outline must be a real fence: at least three corners, some area, no
         /// edge crossing another, and a ceiling above its floor.</summary>
+        /// <summary>Sea holes (MapSeaHole, SDK 0.22): a real outline, inside the map's sea
+        /// disc, and worth having (something dry under the water level inside it).</summary>
+        private static void CheckSeaHoles(Scene scene, List<string> errors, List<string> warnings)
+        {
+            foreach (MapSeaHole hole in FindAllInScene<MapSeaHole>(scene))
+            {
+                string where = Path(hole.transform);
+                if (hole.Points.Count < 3)
+                {
+                    errors.Add($"MapSeaHole '{where}' has {hole.Points.Count} corners; an outline needs at least 3.");
+                    continue;
+                }
+                float reach = hole.ReachXZ();
+                if (reach > MapSeaHole.SeaDiscRadius)
+                    errors.Add($"MapSeaHole '{where}' reaches {reach:0} m from the origin, past the map's sea disc " +
+                        $"({MapSeaHole.SeaDiscRadius:0} m): out there the water is the world's and has no holes.");
+                // A hole over nothing dry is a mistake worth a word: sample its outline's centre.
+                var outline = new List<Vector2>();
+                hole.GetWorldOutline(outline);
+                Vector2 centre = Vector2.zero;
+                foreach (Vector2 p in outline) centre += p;
+                centre /= outline.Count;
+                var from = new Vector3(centre.x, MapEnvironment.SeaLevel + 50f, centre.y);
+                if (Physics.Raycast(from, Vector3.down, out RaycastHit hit, 300f, ~0, QueryTriggerInteraction.Ignore)
+                    && hit.point.y >= MapEnvironment.SeaLevel)
+                    warnings.Add($"MapSeaHole '{where}': the ground at its centre is at or above the water level " +
+                        $"({hit.point.y:0.00}); a hole only matters over a floor below {MapEnvironment.SeaLevel:0}.");
+            }
+        }
+
         private static void CheckOutlines(List<MapBoundsPolygon> outlines, List<string> errors, List<string> warnings)
         {
             foreach (MapBoundsPolygon o in outlines)

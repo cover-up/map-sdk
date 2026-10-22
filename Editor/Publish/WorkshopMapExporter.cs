@@ -263,6 +263,42 @@ namespace CoverUp.EditorTools
             finally { if (ab != null) ab.Unload(true); }
         }
 
+        /// <summary>
+        /// Keep linear fog in the bundle's shaders while it builds (SDK 0.22,
+        /// Docs/OneSeaDesign.md §7). Every map scene has fog off by rule (ArenaLighting),
+        /// so Unity's automatic fog stripping removed the fog variants of every shader in
+        /// it, and the game's fog then never touched the map: not the lobby's distance and
+        /// rain haze seen from the hub (Pål, 2026-10-22: "the giga and crew islands are
+        /// hazed but the map island isn't"), not a map's own rain and fog weather. The
+        /// project's setting is put back afterwards.
+        /// </summary>
+        private static IDisposable KeepLinearFog()
+        {
+            var so = new SerializedObject(UnityEngine.Rendering.GraphicsSettings.GetGraphicsSettings());
+            SerializedProperty mode = so.FindProperty("m_FogStripping");
+            SerializedProperty linear = so.FindProperty("m_FogKeepLinear");
+            if (mode == null || linear == null) return new Restore(null);
+            int oldMode = mode.intValue;
+            bool oldLinear = linear.boolValue;
+            mode.intValue = 1;      // Custom: keep what is ticked
+            linear.boolValue = true;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return new Restore(() =>
+            {
+                var back = new SerializedObject(UnityEngine.Rendering.GraphicsSettings.GetGraphicsSettings());
+                back.FindProperty("m_FogStripping").intValue = oldMode;
+                back.FindProperty("m_FogKeepLinear").boolValue = oldLinear;
+                back.ApplyModifiedPropertiesWithoutUndo();
+            });
+        }
+
+        private sealed class Restore : IDisposable
+        {
+            private Action _undo;
+            public Restore(Action undo) { _undo = undo; }
+            public void Dispose() { _undo?.Invoke(); _undo = null; }
+        }
+
         private static string BuildBundle(string scenePath, string mapId, string tempRoot, BuildTarget target)
         {
             string dir = Path.Combine(tempRoot, target.ToString());
@@ -273,12 +309,15 @@ namespace CoverUp.EditorTools
                 assetNames = new[] { scenePath },
             };
             AssetBundleManifest man;
-            try
+            using (KeepLinearFog())
             {
-                man = BuildPipeline.BuildAssetBundles(dir, new[] { build },
-                    BuildAssetBundleOptions.ChunkBasedCompression | BuildAssetBundleOptions.StrictMode, target);
+                try
+                {
+                    man = BuildPipeline.BuildAssetBundles(dir, new[] { build },
+                        BuildAssetBundleOptions.ChunkBasedCompression | BuildAssetBundleOptions.StrictMode, target);
+                }
+                catch (Exception e) { Debug.LogWarning($"[CoverUp] {target} bundle build threw: {e.Message}"); return null; }
             }
-            catch (Exception e) { Debug.LogWarning($"[CoverUp] {target} bundle build threw: {e.Message}"); return null; }
             if (man == null) return null;
             string[] names = man.GetAllAssetBundles(); // robust to Unity's name-casing
             if (names.Length == 0) return null;

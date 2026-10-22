@@ -61,7 +61,7 @@ namespace CoverUp.EditorTools
             string path = $"{SceneFolder}/{SceneName}.unity";
             if (System.IO.File.Exists(path))
             {
-                Debug.Log($"[CoverUp] {SceneName} already exists — kept as-is (edit it directly, or delete the .unity to reseed).");
+                Debug.Log($"[CoverUp] {SceneName} already exists, kept as-is (edit it directly, or delete the .unity to reseed).");
                 EditorSceneManager.OpenScene(path, OpenSceneMode.Single);
                 return;
             }

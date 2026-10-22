@@ -297,6 +297,8 @@ namespace CoverUp.EditorTools
             c.approxHiderMeters = GameScale.ApproxHeightMeters(hider);
             c.approxHunterMeters = GameScale.ApproxHeightMeters(hunter);
             c.hasSpawn = FindInScene<MapSpawnDisc>(scene) != null;
+            c.weather = cfg != null ? (int)cfg.Weather : 0;
+            c.weatherIntensity = cfg != null ? cfg.WeatherIntensity : 1f;
 
             MapSizeVariants variants = MapSizeVariants.FindInScene(scene);
             if (variants == null)

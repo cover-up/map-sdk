@@ -221,6 +221,11 @@ namespace CoverUp.Gameplay
         // autoSmallMaxPlayers/autoMediumMaxPlayers pair (2026-10-11).
         public int[] sizeMaxPlayers = Array.Empty<int>();
         public bool hasSpawn;
+        // The weather the map allows (MapWeather flags: 1 rain, 2 fog, 4 snow) and its
+        // strength ceiling, so a browser can show a rain or fog chip before download.
+        // Advisory like the rest; the game reads MapConfig in the bundle.
+        public int weather;
+        public float weatherIntensity = 1f;
     }
 
     /// <summary>

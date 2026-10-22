@@ -56,6 +56,20 @@ namespace CoverUp.Gameplay
         Everywhere = 2,
     }
 
+    /// <summary>Which weather a map ALLOWS (SDK 0.22, Docs/OneSeaDesign.md §7). The
+    /// weather itself is the host's roll, the same one the lobby island shows at the
+    /// same moment: a map that allows rain pours when the lobby pours, a map that
+    /// allows only fog shows fog when the roll says fog and clear otherwise. Rain
+    /// covers drizzle, showers, downpours and squalls. Flags, so any mix.</summary>
+    [System.Flags]
+    public enum MapWeather : byte
+    {
+        None = 0,
+        Rain = 1,
+        Fog = 2,
+        Snow = 4,
+    }
+
     /// <summary>
     /// Per-map player scale. Drop one on a map/scene root and the mapper sets how
     /// big the player dolls are relative to the (always 1:1) world — driving size,
@@ -134,6 +148,18 @@ namespace CoverUp.Gameplay
                  "Needs Gulls to be other than None.")]
         private bool gullCalls = true;
 
+        [SerializeField]
+        [Tooltip("Weather this map allows: Rain, Fog, Snow, any mix, or nothing. The weather itself is the " +
+                 "host's roll, shared with the lobby island at the same moment, so it is never constant: clear " +
+                 "spells, light showers, a downpour now and then. A kind not ticked here is simply clear on this map.")]
+        private MapWeather weather = MapWeather.None;
+
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("A CEILING on how hard allowed weather may come, not a constant: each roll's strength is scaled " +
+                 "by this. 1 = as the lobby island, 0.5 = at most half as hard.")]
+        private float weatherIntensity = 1f;
+
         /// <summary>True when the map opted out of the grey world outside its bounds.</summary>
         public bool ColourOutsideBounds => colourOutsideBounds;
 
@@ -162,6 +188,12 @@ namespace CoverUp.Gameplay
 
         /// <summary>Whether gull calls play on this map (SDK 0.18).</summary>
         public bool GullCalls => gullCalls;
+
+        /// <summary>Which weather kinds this map allows; the host's roll decides when.</summary>
+        public MapWeather Weather => weather;
+
+        /// <summary>The ceiling on allowed weather's strength, 0..1, scaling each roll.</summary>
+        public float WeatherIntensity => Mathf.Clamp01(weatherIntensity);
 
         /// <summary>The camera this map forces on the hunter, or
         /// <see cref="MapHunterCamera.Auto"/> to leave the player's toggle alone.</summary>

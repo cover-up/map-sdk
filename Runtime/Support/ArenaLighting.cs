@@ -63,7 +63,11 @@ namespace CoverUp.MapSdk
             RenderSettings.ambientLight = ClampAmbient(RenderSettings.ambientLight);
             RenderSettings.ambientIntensity = 1f;
             RenderSettings.reflectionIntensity = 0f;  // skybox must not shade surfaces
-            RenderSettings.fog = false;                // fog is a distance tell paint can't match
+            // Fog is a distance tell paint can't match, so a map's own fog is off. The game
+            // then puts a horizon HAZE back, starting past the playable reach
+            // (MapBounds.ReachXZ), so the sea and the lobby island 850 m away blend into
+            // the sky while nothing inside the bounds is ever hazed (Docs/OneSeaDesign.md §7).
+            RenderSettings.fog = false;
 
             foreach (Light l in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
             {

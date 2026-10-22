@@ -87,6 +87,33 @@ namespace CoverUp.Gameplay
         }
 
         /// <summary>How far outside the union a point is, 0 inside.</summary>
+        /// <summary>How far from the world origin the active bounds reach in XZ, in metres:
+        /// the furthest corner of any active box or outline. The game starts its horizon
+        /// haze past this (Docs/OneSeaDesign.md §7), so nothing inside the playable space
+        /// is ever hazed. 0 when nothing is active.</summary>
+        public static float ReachXZ()
+        {
+            Collect();
+            float best = 0f;
+            for (int i = 0; i < BoxWorldToLocal.Count; i++)
+            {
+                Matrix4x4 l2w = BoxWorldToLocal[i].inverse;
+                for (int c = 0; c < 8; c++)
+                {
+                    Vector3 corner = l2w.MultiplyPoint3x4(new Vector3((c & 1) == 0 ? -0.5f : 0.5f, (c & 2) == 0 ? -0.5f : 0.5f, (c & 4) == 0 ? -0.5f : 0.5f));
+                    best = Mathf.Max(best, Mathf.Sqrt(corner.x * corner.x + corner.z * corner.z));
+                }
+            }
+            var outline = new List<Vector2>();
+            for (int i = 0; i < Polys.Count; i++)
+            {
+                outline.Clear();
+                Polys[i].GetWorldOutline(outline, out _, out _);
+                for (int p = 0; p < outline.Count; p++) best = Mathf.Max(best, outline[p].magnitude);
+            }
+            return best;
+        }
+
         public static float DistanceOutside(Vector3 world)
             => TryClamp(world, out Vector3 c) ? Vector3.Distance(world, c) : 0f;
 

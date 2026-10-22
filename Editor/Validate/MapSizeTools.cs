@@ -174,6 +174,7 @@ namespace CoverUp.EditorTools
             var keepOuts = FindAllInScene<MapKeepOutVolume>(scene);
             CheckOutlines(outlines, errors, warnings);
             CheckSeaHoles(scene, errors, warnings);
+            CheckIslandReach(scene, warnings);
 
             // Size roots, hoisted out of the sized-map branch below: the grouping
             // checks need to know which objects are size roots (they belong under
@@ -752,6 +753,31 @@ namespace CoverUp.EditorTools
 
         /// <summary>A drawn outline must be a real fence: at least three corners, some area, no
         /// edge crossing another, and a ceiling above its floor.</summary>
+        /// <summary>Every map is an island seen from the lobby across the water (SDK 0.22,
+        /// Docs/OneSeaDesign.md §8). Land that reaches the wire box's edge is still an island
+        /// (the sea surrounds the box), but from the hub it reads as a wall: say so once.</summary>
+        private static void CheckIslandReach(Scene scene, List<string> warnings)
+        {
+            float reach = 0f;
+            string furthest = null;
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                foreach (Renderer r in root.GetComponentsInChildren<Renderer>(false))
+                {
+                    if (r is ParticleSystemRenderer || r.gameObject.CompareTag(MapReferenceDoll.EditorOnlyTag)) continue;
+                    Bounds b = r.bounds;
+                    if (b.max.y <= MapEnvironment.SeaLevel) continue;   // under the water: not a silhouette
+                    float corner = Mathf.Max(
+                        new Vector2(b.min.x, b.min.z).magnitude, new Vector2(b.max.x, b.min.z).magnitude,
+                        new Vector2(b.min.x, b.max.z).magnitude, new Vector2(b.max.x, b.max.z).magnitude);
+                    if (corner > reach) { reach = corner; furthest = Path(r.transform); }
+                }
+            }
+            if (reach > MapWorldBox.HalfExtentXZ)
+                warnings.Add($"Land reaches {reach:0} m from the origin ('{furthest}'), past the {MapWorldBox.HalfExtentXZ:0} m box edge: " +
+                    "the island is still surrounded by sea, but from the lobby island it reads as a wall. Pull the coast in.");
+        }
+
         /// <summary>Sea holes (MapSeaHole, SDK 0.22): a real outline, inside the map's sea
         /// disc, and worth having (something dry under the water level inside it).</summary>
         private static void CheckSeaHoles(Scene scene, List<string> errors, List<string> warnings)

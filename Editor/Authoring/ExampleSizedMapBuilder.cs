@@ -88,7 +88,9 @@ namespace CoverUp.EditorTools
             catch (System.Exception e) { Debug.LogError("[CoverUp] Example sized map build failed: " + e); EditorApplication.Exit(1); }
         }
 
-        [MenuItem("Cover Up!/Maps/Create Example Sized Map")]
+        // Superseded as the template by Create Starter Island (SDK 0.22, every map is an
+        // island); kept as the indoor example of size roots, doors and keep-outs.
+        [MenuItem("Cover Up!/Maps/Create Example Sized Map (indoor corridor, legacy)")]
         public static void Build()
         {
             string path = $"{SceneFolder}/{SceneName}.unity";
